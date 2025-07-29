@@ -1,0 +1,353 @@
+CROCS Massive Test Suite
+============================================================
+Generated 2282 test sizes
+Starting at 2025-07-29 06:43:01
+Estimated time: 19.0 hours
+============================================================
+
+[1/2282] Size 53 with 100,000 tests... ✓ (χ²=28.029, avalanche=0.493)
+Progress: 0.0%, ETA: 0.0 hours
+
+[2/2282] Size 59 with 100,000 tests... ✓ (χ²=27.860, avalanche=0.497)
+Progress: 0.1%, ETA: 0.0 hours
+
+[3/2282] Size 61 with 100,000 tests... ✓ (χ²=28.783, avalanche=0.500)
+Progress: 0.1%, ETA: 0.0 hours
+
+[4/2282] Size 63 with 100,000 tests... ✓ (χ²=30.952, avalanche=0.501)
+Progress: 0.2%, ETA: 0.0 hours
+
+[5/2282] Size 64 with 100,000 tests... ✓ (χ²=27.135, avalanche=0.483)
+Progress: 0.2%, ETA: 0.0 hours
+
+[6/2282] Size 65 with 100,000 tests... ✓ (χ²=30.000, avalanche=0.433)
+Progress: 0.3%, ETA: 0.0 hours
+
+[7/2282] Size 67 with 100,000 tests... ✓ (χ²=29.134, avalanche=0.441)
+Progress: 0.3%, ETA: 0.0 hours
+
+[8/2282] Size 71 with 100,000 tests... ✓ (χ²=27.788, avalanche=0.453)
+Progress: 0.4%, ETA: 0.0 hours
+
+[9/2282] Size 73 with 100,000 tests... ✓ (χ²=30.176, avalanche=0.457)
+Progress: 0.4%, ETA: 0.0 hours
+
+[10/2282] Size 79 with 100,000 tests... ✓ (χ²=31.390, avalanche=0.468)
+Progress: 0.4%, ETA: 0.0 hours
+
+[11/2282] Size 83 with 100,000 tests... ✓ (χ²=29.389, avalanche=0.474)
+Progress: 0.5%, ETA: 0.0 hours
+
+[12/2282] Size 89 with 100,000 tests... ✓ (χ²=29.668, avalanche=0.481)
+Progress: 0.5%, ETA: 0.0 hours
+
+[13/2282] Size 97 with 100,000 tests... ✓ (χ²=29.010, avalanche=0.486)
+Progress: 0.6%, ETA: 0.0 hours
+
+[14/2282] Size 99 with 100,000 tests... ✓ (χ²=28.590, avalanche=0.488)
+Progress: 0.6%, ETA: 0.0 hours
+
+[15/2282] Size 100 with 100,000 tests... ✓ (χ²=28.420, avalanche=0.482)
+Progress: 0.7%, ETA: 0.0 hours
+
+[16/2282] Size 101 with 100,000 tests... ✓ (χ²=29.680, avalanche=0.490)
+Progress: 0.7%, ETA: 0.0 hours
+
+[17/2282] Size 103 with 100,000 tests... ✓ (χ²=28.035, avalanche=0.491)
+Progress: 0.7%, ETA: 0.0 hours
+
+[18/2282] Size 107 with 100,000 tests... ✓ (χ²=29.596, avalanche=0.492)
+Progress: 0.8%, ETA: 0.0 hours
+
+[19/2282] Size 109 with 100,000 tests... ✓ (χ²=28.905, avalanche=0.495)
+Progress: 0.8%, ETA: 0.0 hours
+
+[20/2282] Size 113 with 100,000 tests... ✓ (χ²=28.001, avalanche=0.496)
+Progress: 0.9%, ETA: 0.0 hours
+
+[21/2282] Size 127 with 100,000 tests... ✓ (χ²=28.719, avalanche=0.500)
+Progress: 0.9%, ETA: 0.0 hours
+
+[22/2282] Size 128 with 100,000 tests... ✓ (χ²=27.650, avalanche=0.486)
+Progress: 1.0%, ETA: 0.0 hours
+
+[23/2282] Size 129 with 100,000 tests... ✓ (χ²=29.500, avalanche=0.440)
+Progress: 1.0%, ETA: 0.0 hours
+
+[24/2282] Size 131 with 100,000 tests... ✓ (χ²=28.733, avalanche=0.444)
+Progress: 1.1%, ETA: 0.0 hours
+
+[25/2282] Size 137 with 100,000 tests... ✓ (χ²=27.414, avalanche=0.453)
+Progress: 1.1%, ETA: 0.0 hours
+
+[26/2282] Size 139 with 100,000 tests... ✓ (χ²=28.179, avalanche=0.455)
+Progress: 1.1%, ETA: 0.0 hours
+
+[27/2282] Size 149 with 100,000 tests... ✓ (χ²=27.402, avalanche=0.465)
+Progress: 1.2%, ETA: 0.0 hours
+
+[28/2282] Size 151 with 100,000 tests... ✓ (χ²=29.970, avalanche=0.467)
+Progress: 1.2%, ETA: 0.0 hours
+
+[29/2282] Size 157 with 100,000 tests... ✓ (χ²=28.054, avalanche=0.471)
+Progress: 1.3%, ETA: 0.0 hours
+
+[30/2282] Size 163 with 100,000 tests... ✓ (χ²=28.619, avalanche=0.476)
+Progress: 1.3%, ETA: 0.0 hours
+
+[31/2282] Size 167 with 100,000 tests... ✓ (χ²=27.742, avalanche=0.477)
+Progress: 1.4%, ETA: 0.0 hours
+
+[32/2282] Size 173 with 100,000 tests... ✓ (χ²=27.874, avalanche=0.480)
+Progress: 1.4%, ETA: 0.0 hours
+
+[33/2282] Size 179 with 100,000 tests... ✓ (χ²=29.758, avalanche=0.483)
+Progress: 1.4%, ETA: 0.0 hours
+
+[34/2282] Size 181 with 100,000 tests... ✓ (χ²=30.085, avalanche=0.484)
+Progress: 1.5%, ETA: 0.0 hours
+
+[35/2282] Size 191 with 100,000 tests... ✓ (χ²=28.823, avalanche=0.487)
+Progress: 1.5%, ETA: 0.0 hours
+
+[36/2282] Size 193 with 100,000 tests... ✓ (χ²=29.266, avalanche=0.486)
+Progress: 1.6%, ETA: 0.0 hours
+
+[37/2282] Size 197 with 100,000 tests... ✓ (χ²=28.771, avalanche=0.489)
+Progress: 1.6%, ETA: 0.0 hours
+
+[38/2282] Size 199 with 100,000 tests... ✓ (χ²=28.818, avalanche=0.490)
+Progress: 1.7%, ETA: 0.0 hours
+
+[39/2282] Size 209 with 100,000 tests... ✓ (χ²=28.848, avalanche=0.494)
+Progress: 1.7%, ETA: 0.0 hours
+
+[40/2282] Size 211 with 100,000 tests... ✓ (χ²=28.955, avalanche=0.494)
+Progress: 1.8%, ETA: 0.0 hours
+
+[41/2282] Size 223 with 100,000 tests... ✓ (χ²=27.570, avalanche=0.497)
+Progress: 1.8%, ETA: 0.0 hours
+
+[42/2282] Size 227 with 100,000 tests... ✓ (χ²=29.418, avalanche=0.498)
+Progress: 1.8%, ETA: 0.0 hours
+
+[43/2282] Size 229 with 100,000 tests... ✓ (χ²=28.384, avalanche=0.497)
+Progress: 1.9%, ETA: 0.0 hours
+
+[44/2282] Size 233 with 100,000 tests... ✓ (χ²=28.507, avalanche=0.499)
+Progress: 1.9%, ETA: 0.0 hours
+
+[45/2282] Size 239 with 100,000 tests... ✓ (χ²=28.432, avalanche=0.498)
+Progress: 2.0%, ETA: 0.0 hours
+
+[46/2282] Size 241 with 100,000 tests... ✓ (χ²=27.985, avalanche=0.499)
+Progress: 2.0%, ETA: 0.0 hours
+
+[47/2282] Size 251 with 100,000 tests... ✓ (χ²=29.596, avalanche=0.498)
+Progress: 2.1%, ETA: 0.0 hours
+
+[48/2282] Size 255 with 100,000 tests... ✓ (χ²=29.896, avalanche=0.501)
+Progress: 2.1%, ETA: 0.0 hours
+
+[49/2282] Size 256 with 100,000 tests... ✓ (χ²=28.013, avalanche=0.491)
+Progress: 2.1%, ETA: 0.0 hours
+
+[50/2282] Size 257 with 100,000 tests... ✓ (χ²=28.706, avalanche=0.446)
+Progress: 2.2%, ETA: 0.0 hours
+
+[51/2282] Size 263 with 100,000 tests... ✓ (χ²=28.952, avalanche=0.450)
+Progress: 2.2%, ETA: 0.0 hours
+
+[52/2282] Size 269 with 100,000 tests... ✓ (χ²=29.547, avalanche=0.454)
+Progress: 2.3%, ETA: 0.0 hours
+
+[53/2282] Size 271 with 100,000 tests... ✓ (χ²=29.142, avalanche=0.455)
+Progress: 2.3%, ETA: 0.0 hours
+
+[54/2282] Size 277 with 100,000 tests... ✓ (χ²=29.180, avalanche=0.457)
+Progress: 2.4%, ETA: 0.0 hours
+
+[55/2282] Size 281 with 100,000 tests... ✓ (χ²=29.537, avalanche=0.462)
+Progress: 2.4%, ETA: 0.0 hours
+
+[56/2282] Size 283 with 100,000 tests... ✓ (χ²=28.391, avalanche=0.462)
+Progress: 2.5%, ETA: 0.0 hours
+
+[57/2282] Size 293 with 100,000 tests... ✓ (χ²=29.521, avalanche=0.467)
+Progress: 2.5%, ETA: 0.0 hours
+
+[58/2282] Size 307 with 100,000 tests... ✓ (χ²=29.275, avalanche=0.472)
+Progress: 2.5%, ETA: 0.0 hours
+
+[59/2282] Size 311 with 100,000 tests... ✓ (χ²=28.761, avalanche=0.474)
+Progress: 2.6%, ETA: 0.0 hours
+
+[60/2282] Size 313 with 100,000 tests... ✓ (χ²=28.852, avalanche=0.474)
+Progress: 2.6%, ETA: 0.0 hours
+
+[61/2282] Size 317 with 100,000 tests... ✓ (χ²=28.135, avalanche=0.475)
+Progress: 2.7%, ETA: 0.0 hours
+
+[62/2282] Size 331 with 100,000 tests... ✓ (χ²=30.868, avalanche=0.479)
+Progress: 2.7%, ETA: 0.0 hours
+
+[63/2282] Size 337 with 100,000 tests... ✓ (χ²=28.037, avalanche=0.480)
+Progress: 2.8%, ETA: 0.0 hours
+
+[64/2282] Size 347 with 100,000 tests... ✓ (χ²=28.564, avalanche=0.483)
+Progress: 2.8%, ETA: 0.0 hours
+
+[65/2282] Size 349 with 100,000 tests... ✓ (χ²=27.932, avalanche=0.484)
+Progress: 2.8%, ETA: 0.0 hours
+
+[66/2282] Size 353 with 100,000 tests... ✓ (χ²=28.961, avalanche=0.483)
+Progress: 2.9%, ETA: 0.0 hours
+
+[67/2282] Size 359 with 100,000 tests... ✓ (χ²=30.072, avalanche=0.485)
+Progress: 2.9%, ETA: 0.0 hours
+
+[68/2282] Size 367 with 100,000 tests... ✓ (χ²=29.509, avalanche=0.487)
+Progress: 3.0%, ETA: 0.0 hours
+
+[69/2282] Size 373 with 100,000 tests... ✓ (χ²=27.985, avalanche=0.487)
+Progress: 3.0%, ETA: 0.0 hours
+
+[70/2282] Size 379 with 100,000 tests... ✓ (χ²=27.992, avalanche=0.487)
+Progress: 3.1%, ETA: 0.0 hours
+
+[71/2282] Size 383 with 100,000 tests... ✓ (χ²=28.928, avalanche=0.488)
+Progress: 3.1%, ETA: 0.0 hours
+
+[72/2282] Size 389 with 100,000 tests... ✓ (χ²=29.113, avalanche=0.489)
+Progress: 3.2%, ETA: 0.0 hours
+
+[73/2282] Size 397 with 100,000 tests... ✓ (χ²=28.385, avalanche=0.491)
+Progress: 3.2%, ETA: 0.0 hours
+
+[74/2282] Size 401 with 100,000 tests... ✓ (χ²=29.944, avalanche=0.491)
+Progress: 3.2%, ETA: 0.0 hours
+
+[75/2282] Size 409 with 100,000 tests... ✓ (χ²=28.854, avalanche=0.493)
+Progress: 3.3%, ETA: 0.0 hours
+
+[76/2282] Size 419 with 100,000 tests... ✓ (χ²=27.688, avalanche=0.494)
+Progress: 3.3%, ETA: 0.0 hours
+
+[77/2282] Size 421 with 100,000 tests... ✓ (χ²=29.309, avalanche=0.494)
+Progress: 3.4%, ETA: 0.0 hours
+
+[78/2282] Size 431 with 100,000 tests... ✓ (χ²=29.484, avalanche=0.495)
+Progress: 3.4%, ETA: 0.0 hours
+
+[79/2282] Size 433 with 100,000 tests... ✓ (χ²=29.456, avalanche=0.495)
+Progress: 3.5%, ETA: 0.0 hours
+
+[80/2282] Size 439 with 100,000 tests... ✓ (χ²=27.658, avalanche=0.496)
+Progress: 3.5%, ETA: 0.0 hours
+
+[81/2282] Size 443 with 100,000 tests... ✓ (χ²=29.002, avalanche=0.496)
+Progress: 3.5%, ETA: 0.0 hours
+
+[82/2282] Size 449 with 100,000 tests... ✓ (χ²=28.374, avalanche=0.497)
+Progress: 3.6%, ETA: 0.0 hours
+
+[83/2282] Size 457 with 100,000 tests... ✓ (χ²=28.793, avalanche=0.497)
+Progress: 3.6%, ETA: 0.0 hours
+
+[84/2282] Size 461 with 100,000 tests... ✓ (χ²=28.432, avalanche=0.499)
+Progress: 3.7%, ETA: 0.0 hours
+
+[85/2282] Size 463 with 100,000 tests... ✓ (χ²=28.356, avalanche=0.499)
+Progress: 3.7%, ETA: 0.0 hours
+
+[86/2282] Size 467 with 100,000 tests... ✓ (χ²=29.594, avalanche=0.499)
+Progress: 3.8%, ETA: 0.0 hours
+
+[87/2282] Size 479 with 100,000 tests... ✓ (χ²=29.221, avalanche=0.499)
+Progress: 3.8%, ETA: 0.0 hours
+
+[88/2282] Size 487 with 100,000 tests... ✓ (χ²=29.486, avalanche=0.500)
+Progress: 3.9%, ETA: 0.0 hours
+
+[89/2282] Size 491 with 100,000 tests... ✓ (χ²=29.379, avalanche=0.498)
+Progress: 3.9%, ETA: 0.0 hours
+
+[90/2282] Size 499 with 100,000 tests... ✓ (χ²=29.341, avalanche=0.500)
+Progress: 3.9%, ETA: 0.0 hours
+
+[91/2282] Size 503 with 100,000 tests... ✓ (χ²=29.700, avalanche=0.500)
+Progress: 4.0%, ETA: 0.0 hours
+
+[92/2282] Size 509 with 100,000 tests... ✓ (χ²=28.283, avalanche=0.501)
+Progress: 4.0%, ETA: 0.0 hours
+
+[93/2282] Size 511 with 100,000 tests... ✓ (χ²=28.178, avalanche=0.501)
+Progress: 4.1%, ETA: 0.0 hours
+
+[94/2282] Size 512 with 100,000 tests... ✓ (χ²=29.165, avalanche=0.493)
+Progress: 4.1%, ETA: 0.0 hours
+
+[95/2282] Size 513 with 100,000 tests... ✓ (χ²=29.197, avalanche=0.451)
+Progress: 4.2%, ETA: 0.0 hours
+
+[96/2282] Size 521 with 100,000 tests... ✓ (χ²=28.743, avalanche=0.454)
+Progress: 4.2%, ETA: 0.0 hours
+
+[97/2282] Size 523 with 100,000 tests... ✓ (χ²=29.349, avalanche=0.454)
+Progress: 4.3%, ETA: 0.0 hours
+
+[98/2282] Size 541 with 100,000 tests... ✓ (χ²=28.344, avalanche=0.460)
+Progress: 4.3%, ETA: 0.0 hours
+
+[99/2282] Size 547 with 100,000 tests... ✓ (χ²=28.889, avalanche=0.461)
+Progress: 4.3%, ETA: 0.0 hours
+
+[100/2282] Size 557 with 100,000 tests... ✓ (χ²=29.202, avalanche=0.463)
+Progress: 4.4%, ETA: 0.0 hours
+
+[101/2282] Size 563 with 100,000 tests... ✓ (χ²=28.477, avalanche=0.466)
+Progress: 4.4%, ETA: 0.0 hours
+
+[102/2282] Size 569 with 100,000 tests... ✓ (χ²=29.420, avalanche=0.467)
+Progress: 4.5%, ETA: 0.0 hours
+
+[103/2282] Size 571 with 100,000 tests... ✓ (χ²=28.192, avalanche=0.467)
+Progress: 4.5%, ETA: 0.0 hours
+
+[104/2282] Size 577 with 100,000 tests... ✓ (χ²=28.873, avalanche=0.468)
+Progress: 4.6%, ETA: 0.0 hours
+
+[105/2282] Size 587 with 100,000 tests... ✓ (χ²=28.837, avalanche=0.470)
+Progress: 4.6%, ETA: 0.0 hours
+
+[106/2282] Size 593 with 100,000 tests... ✓ (χ²=28.772, avalanche=0.472)
+Progress: 4.6%, ETA: 0.0 hours
+
+[107/2282] Size 599 with 100,000 tests... ✓ (χ²=28.610, avalanche=0.473)
+Progress: 4.7%, ETA: 0.0 hours
+
+[108/2282] Size 601 with 100,000 tests... ✓ (χ²=29.185, avalanche=0.473)
+Progress: 4.7%, ETA: 0.0 hours
+
+[109/2282] Size 607 with 100,000 tests... ✓ (χ²=29.484, avalanche=0.474)
+Progress: 4.8%, ETA: 0.0 hours
+
+[110/2282] Size 613 with 100,000 tests... ✓ (χ²=28.426, avalanche=0.475)
+Progress: 4.8%, ETA: 0.0 hours
+
+[111/2282] Size 617 with 100,000 tests... ✓ (χ²=29.030, avalanche=0.476)
+Progress: 4.9%, ETA: 0.0 hours
+
+[112/2282] Size 619 with 100,000 tests... ✓ (χ²=29.112, avalanche=0.475)
+Progress: 4.9%, ETA: 0.0 hours
+
+[113/2282] Size 631 with 100,000 tests... ✓ (χ²=30.201, avalanche=0.477)
+Progress: 5.0%, ETA: 0.0 hours
+
+[114/2282] Size 641 with 100,000 tests... ✓ (χ²=28.582, avalanche=0.479)
+Progress: 5.0%, ETA: 0.0 hours
+
+[115/2282] Size 643 with 100,000 tests... ✓ (χ²=28.797, avalanche=0.479)
+Progress: 5.0%, ETA: 0.0 hours
+
+[116/2282] Size 647 with 100,000 tests...

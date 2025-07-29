@@ -1,0 +1,33 @@
+{
+  "overall": {
+    "num_runs": 1,
+    "total_tests": 41,
+    "min_size": 97,
+    "max_size": 8000009,
+    "avg_chi_square": 0.9910639024390244,
+    "avg_performance": 27.179856097560975,
+    "avg_collision_ratio": 0.9994374878048781
+  },
+  "chi_square_quality": {
+    "total": 41,
+    "within_5pct": 34,
+    "within_10pct": 39
+  },
+  "performance_by_size": [
+    {
+      "size_range": "Small (<1K)",
+      "avg_performance": 23.390833333333333,
+      "num_tests": 9
+    },
+    {
+      "size_range": "Medium (1K-100K)",
+      "avg_performance": 28.00108571428571,
+      "num_tests": 21
+    },
+    {
+      "size_range": "Large (100K-10M)",
+      "avg_performance": 28.712163636363638,
+      "num_tests": 11
+    }
+  ]
+}

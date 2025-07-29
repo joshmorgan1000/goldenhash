@@ -1,0 +1,19 @@
+{
+  "name": "quick_smoke",
+  "description": "Quick smoke test with representative sizes",
+  "sizes": [
+    53,
+    251,
+    499,
+    503,
+    899,
+    4901,
+    5040,
+    19599,
+    49157,
+    52899,
+    193601,
+    490001
+  ],
+  "test_count": 10000
+}
