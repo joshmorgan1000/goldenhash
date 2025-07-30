@@ -27,7 +27,7 @@ GoldenHash is a novel hash function that leverages the mathematical properties o
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/goldenhash.git
+git clone https://github.com/joshmorgan1000/goldenhash.git
 cd goldenhash
 
 # Create build directory
