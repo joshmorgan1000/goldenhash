@@ -12,11 +12,18 @@ include_directories(include)
 # Build flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3 -march=native")
 
-# Library (header-only for now)
-add_library(goldenhash INTERFACE)
-target_include_directories(goldenhash INTERFACE 
+# Static library
+add_library(goldenhash STATIC src/goldenhash.cpp)
+target_include_directories(goldenhash PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+)
+target_compile_features(goldenhash PUBLIC cxx_std_23)
+
+# Set library properties
+set_target_properties(goldenhash PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    POSITION_INDEPENDENT_CODE ON
 )
 
 # Main executable
