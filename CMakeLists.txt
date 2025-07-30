@@ -13,7 +13,7 @@ include_directories(include)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3 -march=native")
 
 # Static library
-add_library(goldenhash STATIC src/goldenhash.cpp)
+add_library(goldenhash STATIC src/goldenhash.cpp src/goldenhash_cipher.cpp)
 target_include_directories(goldenhash PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
@@ -29,3 +29,7 @@ set_target_properties(goldenhash PROPERTIES
 # Main executable
 add_executable(goldenhash_test src/main.cpp)
 target_link_libraries(goldenhash_test PRIVATE goldenhash m)
+
+# Cipher test executable
+add_executable(cipher_test src/cipher_test.cpp)
+target_link_libraries(cipher_test PRIVATE goldenhash m)
