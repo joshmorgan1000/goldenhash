@@ -19,10 +19,6 @@ target_include_directories(goldenhash INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
-# Experimental programs
-add_executable(test_float_hash experimental/test_float_hash.cpp)
-target_link_libraries(test_float_hash PRIVATE m)
-
-# Test programs
-add_executable(test_float_hash_metrics tests/test_float_hash_metrics.cpp)
-target_link_libraries(test_float_hash_metrics PRIVATE m)
+# Main executable
+add_executable(goldenhash_test src/main.cpp)
+target_link_libraries(goldenhash_test PRIVATE goldenhash m)

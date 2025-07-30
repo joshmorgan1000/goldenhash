@@ -1,0 +1,62 @@
+
+\begin{table}[h]
+\centering
+\caption{Overall GoldenHash Performance Statistics}
+\begin{tabular}{lcc}
+\hline
+Metric & Mean & Std Dev \\
+\hline
+Avalanche Score & 0.4914 & 0.0082 \\
+Chi-Square & 1.0002 & 0.0156 \\
+Collision Ratio & 1.0033 & 0.4235 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Performance Comparison: Prime vs Composite Table Sizes}
+\begin{tabular}{lcccc}
+\hline
+Table Type & Count & Avalanche & Chi-Square & Collision Ratio \\
+\hline
+Prime & 180 & 0.4900 & 0.9995 & 1.0026 \\
+Composite & 4820 & 0.4915 & 1.0002 & 1.0034 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Quality Metrics: Percentage Meeting Ideal Criteria}
+\begin{tabular}{lcc}
+\hline
+Metric & Ideal Range & Percentage Meeting \\
+\hline
+Avalanche Score & 0.45--0.55 & 99.9\% \\
+Chi-Square & 0.9--1.1 & 99.4\% \\
+Collision Ratio & $\leq$ 1.2 & 81.4\% \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Sample Results for Small Table Sizes}
+\begin{tabular}{rcccc}
+\hline
+Table Size & Type & Avalanche & Chi-Square & Collision Ratio \\
+\hline
+255 & Comp. & 0.4981 & 0.8322 & 1.0000 \\
+256 & Comp. & 0.4989 & 0.9095 & 1.0000 \\
+257 & Prime & 0.4461 & 1.0308 & 1.0000 \\
+259 & Comp. & 0.4456 & 1.0894 & 1.0000 \\
+261 & Comp. & 0.4497 & 1.0677 & 1.0000 \\
+262 & Comp. & 0.4488 & 1.3384 & 1.0000 \\
+263 & Prime & 0.4525 & 0.9498 & 1.0000 \\
+267 & Comp. & 0.4534 & 0.9118 & 1.0000 \\
+275 & Comp. & 0.4582 & 0.8562 & 1.0000 \\
+281 & Prime & 0.4634 & 1.0912 & 1.0000 \\
+\hline
+\end{tabular}
+\end{table}

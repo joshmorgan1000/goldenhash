@@ -1,0 +1,16 @@
+GoldenHash Performance Analysis Report
+==================================================
+
+Total table sizes tested: 5000
+Prime table sizes: 180
+Composite table sizes: 4820
+
+Overall Performance:
+  Avalanche: 0.4914 ± 0.0082
+  Chi-Square: 1.0002 ± 0.0156
+  Collision Ratio: 1.0033 ± 0.4235
+
+Quality Metrics:
+  Good avalanche (0.45-0.55): 99.9%
+  Good chi-square (0.9-1.1): 99.4%
+  Good collision ratio (≤1.2): 81.4%

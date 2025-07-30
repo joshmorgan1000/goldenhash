@@ -1,281 +1,240 @@
+/**
+ * Copyright 2025 Josh Morgan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 /**
  * @file goldenhash.hpp
- * @brief Header file for the CROCS golden ratio hash function
+ * @brief Header file for the GoldenHash golden ratio hash function
  * @details This file defines the GoldenHash class which implements a hash function
  * based on primes and the golden ratio. It aims to efficiently generate a high
  * performance hash function for any N size hash table. We expect it to hit all the
  * metrics - Chi-square, collision rate, avalanche effect, and the birthday paradox.
  */
-#include <cstdint>
+#include <chrono>
+#include <map>
+#include <set>
 #include <cmath>
+#include <algorithm>
+#include <numeric>
+#include <random>
+#include <iomanip>
+#include <sstream>
+#include <bitset>
 #include <vector>
 #include <string>
 #include <span>
-#include <bit>
-#include <concepts>
-#include <type_traits>
-#include <functional>
-#include <cstdlib>
+#include <iostream>
 
 namespace goldenhash {
 
-// Golden ratio constant
-inline constexpr double PHI = 1.6180339887498948482;
+static const long double GOLDEN_RATIO = (1 + std::sqrt(5)) / 2; // Golden ratio constant
 
-// Concept for hashable types
-template<typename T>
-concept Hashable = requires(T t) {
-    { std::data(t) } -> std::convertible_to<const void*>;
-    { std::size(t) } -> std::convertible_to<std::size_t>;
+#ifdef __has_include
+#  if __has_include(<json/json.h>)
+#    include <json/json.h>
+#    define HAS_JSONCPP 1
+#  else
+#    define HAS_JSONCPP 0
+#  endif
+#else
+#  define HAS_JSONCPP 0
+#endif
+
+/**
+ * @struct MetricResult
+ * @brief Container for individual metric results
+ */
+struct MetricResult {
+    std::string name;
+    double value;
+    std::string unit;
+    std::string description;
+    std::map<std::string, double> details;
 };
 
 /**
- * @brief Optimized primality test for large numbers
+ * @struct TestConfiguration
+ * @brief Configuration for hash function tests
  */
-class PrimalityTester {
+struct TestConfiguration {
+    uint64_t num_keys = 1000000;
+    uint64_t table_size = 1024;
+    uint64_t seed = 0;
+    bool test_avalanche = true;
+    bool test_distribution = true;
+    bool test_collisions = true;
+    bool test_performance = true;
+    bool test_bit_independence = true;
+    uint32_t num_performance_runs = 10;
+    uint32_t avalanche_samples = 10000;
+};
+
+/**
+ * @class GoldenHash
+ * @brief Implementation of a modular golden ratio hash function
+ * 
+ * This class implements a hash function based on the golden ratio and prime numbers.
+ * It aims to provide a high-performance hash function suitable for in-memory hash tables.
+ * It can hash based on any arbitrary table size N, using primes near N/φ and N/φ².
+ */
+class GoldenHash {    
 public:
-    static bool is_prime(uint64_t n) {
-        if (n < 2) return false;
-        if (n == 2 || n == 3) return true;
-        if (n % 2 == 0 || n % 3 == 0) return false;
+    GoldenHash(uint64_t table_size, uint64_t seed = 0) : N(table_size), seed_(seed) {
+        // Find golden ratio primes
+        uint64_t target_high = N / GOLDEN_RATIO;
+        uint64_t target_low = N / (GOLDEN_RATIO * GOLDEN_RATIO);
         
-        // Check up to sqrt(n) with 6k±1 optimization
-        uint64_t sqrt_n = static_cast<uint64_t>(std::sqrt(n));
-        for (uint64_t i = 5; i <= sqrt_n; i += 6) {
-            if (n % i == 0 || n % (i + 2) == 0) return false;
+        // Find nearest primes
+        prime_high = find_nearest_prime(target_high);
+        prime_low = find_nearest_prime(target_low);
+        
+        // Determine working modulus
+        if (is_prime(N)) {
+            // For prime N, we have options:
+            // 1. Use N-1 (Fermat's little theorem) - causes issues with consecutive primes
+            // 2. Use next composite number
+            // 3. Use N+1 
+            // For now, use N+1 to avoid collision issues
+            working_mod = N + 1;
+        } else {
+            // For composite N, use N
+            working_mod = N;
         }
-        return true;
+        
+        // Factorize for mixed-radix if needed
+        factors = factorize(working_mod);
+        
+        // Initialize secret for 3 complete rotations
+        // For modular arithmetic, we want values that cycle through the space
+        size_t secret_size = 24;  // Keep same structure as XXH3
+        secret.resize(secret_size);
+        
+        // Generate secret values using golden ratio mixing
+        uint64_t h = N;
+        for (size_t i = 0; i < secret_size; i++) {
+            h = h * prime_high + i;
+            h = (h + h / 33) % working_mod;
+            h = (h * prime_low) % working_mod;
+            h = (h + h / 29) % working_mod;
+            // Already in modular space
+            secret[i] = h;
+        }
     }
     
-    // Miller-Rabin test for very large numbers
-    static bool is_prime_miller_rabin(uint64_t n, int k = 5) {
+    // Original hash method
+    uint64_t hash(const uint8_t* data, size_t len) const {
+        // Create chaos factor that incorporates table size
+        uint64_t chaos = 0x5851f42d4c957f2dULL ^ (N * 0x9e3779b97f4a7c15ULL);
+        uint64_t h = seed_ ^ chaos;
+        
+        // Process each byte with secret mixing - NO MODULOS in the loop
+        for (size_t i = 0; i < len; i++) {
+            // Mix with secret value (3 rotations through 24 values)
+            uint64_t secret_val = secret[i % secret.size()];
+            
+            // Input mixing with XOR and multiplication
+            h ^= (data[i] + secret_val) * prime_low;
+            h *= prime_high;
+            
+            // Additional mixing with position-dependent value
+            h ^= h >> 33;
+            h *= (prime_high + i * secret_val);
+            h ^= h >> 29;
+        }
+        
+        // Final avalanche mixing - still no modulos
+        // Mix in table size again to ensure it affects the distribution
+        h ^= N * 0x165667919E3779F9ULL;  // XXH3 avalanche prime
+        
+        // Standard integer hash avalanche
+        h ^= h >> 33;
+        h *= 0xff51afd7ed558ccdULL;
+        h ^= h >> 33;
+        h *= 0xc4ceb9fe1a85ec53ULL;
+        h ^= h >> 33;
+        
+        // Mix in length for additional entropy
+        h ^= len * prime_low;
+        
+        // SINGLE modulo at the very end
+        return h % N;
+    }
+    
+    void print_info() const {
+        std::cout << "Table size (N): " << N << "\n";
+        std::cout << "Is prime: " << (is_prime(N) ? "Yes" : "No") << "\n";
+        std::cout << "Working modulus: " << working_mod << "\n";
+        std::cout << "High prime (N/φ): " << prime_high << " (target: " << uint64_t(N/GOLDEN_RATIO) << ")\n";
+        std::cout << "Low prime (N/φ²): " << prime_low << " (target: " << uint64_t(N/(GOLDEN_RATIO*GOLDEN_RATIO)) << ")\n";
+        std::cout << "Factorization: ";
+        for (auto f : factors) std::cout << f << " ";
+        std::cout << "\n";
+        std::cout << "Golden ratio check: N/prime_high = " << double(N)/prime_high << " (φ = " << GOLDEN_RATIO << ")\n";
+    }
+    
+    uint64_t get_table_size() const { return N; }
+    uint64_t get_prime_high() const { return prime_high; }
+    uint64_t get_prime_low() const { return prime_low; }
+    uint64_t get_working_mod() const { return working_mod; }
+    const std::vector<uint64_t>& get_factors() const { return factors; }
+
+private:
+    uint64_t N;              // Table size
+    uint64_t prime_high;     // Prime near N/φ
+    uint64_t prime_low;      // Prime near N/φ²
+    uint64_t working_mod;    // Modulus for operations
+    std::vector<uint64_t> factors;
+    std::vector<uint64_t> secret;  // Modular secret for mixing
+    uint64_t seed_;          // Seed value
+
+    // Simple primality test
+    bool is_prime(uint64_t n) const {
         if (n < 2) return false;
-        if (n == 2 || n == 3) return true;
+        if (n == 2) return true;
         if (n % 2 == 0) return false;
-        
-        // Write n-1 as 2^r * d
-        uint64_t r = 0, d = n - 1;
-        while (d % 2 == 0) {
-            r++;
-            d /= 2;
-        }
-        
-        // Witness loop
-        for (int i = 0; i < k; i++) {
-            uint64_t a = 2 + (rand() % (n - 3));
-            uint64_t x = mod_pow(a, d, n);
-            
-            if (x == 1 || x == n - 1) continue;
-            
-            bool composite = true;
-            for (uint64_t j = 0; j < r - 1; j++) {
-                x = (x * x) % n;
-                if (x == n - 1) {
-                    composite = false;
-                    break;
-                }
-            }
-            
-            if (composite) return false;
+        for (uint64_t i = 3; i * i <= n; i += 2) {
+            if (n % i == 0) return false;
         }
         return true;
     }
-    
-private:
-    static uint64_t mod_pow(uint64_t base, uint64_t exp, uint64_t mod) {
-        uint64_t result = 1;
-        base %= mod;
-        while (exp > 0) {
-            if (exp & 1) result = (__uint128_t)result * base % mod;
-            base = (__uint128_t)base * base % mod;
-            exp >>= 1;
-        }
-        return result;
-    }
-};
 
-/**
- * @brief Golden ratio prime finder
- */
-class GoldenPrimeFinder {
-public:
-    /**
-     * @brief Find the optimal prime for a given hash table size
-     * @param n The size of the hash table
-     * @return The nearest prime to n/φ
-     */
-    static uint64_t find_golden_prime(uint64_t n) {
-        uint64_t golden_value = static_cast<uint64_t>(n / PHI);
+    // Find factors of N for mixed-radix representation
+    std::vector<uint64_t> factorize(uint64_t n) {
+        std::vector<uint64_t> factors;
+        uint64_t temp = n;
         
-        // For very large n, use more efficient search
-        if (n > 1ULL << 32) {
-            return find_large_prime_near(golden_value);
+        for (uint64_t i = 2; i * i <= temp; i++) {
+            while (temp % i == 0) {
+                factors.push_back(i);
+                temp /= i;
+            }
         }
+        if (temp > 1) factors.push_back(temp);
         
-        // Standard search for smaller values
-        return find_nearest_prime(golden_value, n);
+        return factors;
     }
-    
-private:
-    static uint64_t find_nearest_prime(uint64_t target, uint64_t max_value) {
-        if (target > max_value) target = max_value;
-        
-        if (PrimalityTester::is_prime(target)) return target;
-        
+
+    uint64_t find_nearest_prime(uint64_t target) const {
         // Search outward from target
-        for (uint64_t delta = 1; delta < target && delta < 10000; ++delta) {
-            if (target > delta && PrimalityTester::is_prime(target - delta)) {
-                return target - delta;
-            }
-            if (target + delta <= max_value && PrimalityTester::is_prime(target + delta)) {
-                return target + delta;
-            }
+        for (uint64_t delta = 0; delta < 1000; delta++) {
+            if (target > delta && is_prime(target - delta)) return target - delta;
+            if (is_prime(target + delta)) return target + delta;
         }
-        
-        // Fallback for very small n
-        return 2;
-    }
-    
-    static uint64_t find_large_prime_near(uint64_t target) {
-        // For very large numbers, check fewer candidates
-        if (PrimalityTester::is_prime_miller_rabin(target)) return target;
-        
-        // Only check odd numbers
-        if (target % 2 == 0) target--;
-        
-        for (uint64_t candidate = target; candidate > target - 1000; candidate -= 2) {
-            if (PrimalityTester::is_prime_miller_rabin(candidate)) {
-                return candidate;
-            }
-        }
-        
-        for (uint64_t candidate = target + 2; candidate < target + 1000; candidate += 2) {
-            if (PrimalityTester::is_prime_miller_rabin(candidate)) {
-                return candidate;
-            }
-        }
-        
-        return target; // Give up and use non-prime
+        return target; // Fallback
     }
 };
 
-/**
- * @brief CROCS hash function for arbitrary bit sizes
- * @tparam OutputBits Number of output bits (8, 16, 24, 32, 64, etc.)
- */
-template<size_t OutputBits>
-class CrocsHash {
-    static_assert(OutputBits >= 8 && OutputBits <= 64, 
-                  "Output bits must be between 8 and 64");
-    
-private:
-    using OutputType = std::conditional_t<
-        OutputBits <= 8,  uint8_t,
-        std::conditional_t<
-            OutputBits <= 16, uint16_t,
-            std::conditional_t<
-                OutputBits <= 32, uint32_t,
-                uint64_t
-            >
-        >
-    >;
-    
-    static constexpr uint64_t OUTPUT_MASK = (OutputBits == 64) ? 
-        ~0ULL : ((1ULL << OutputBits) - 1);
-    
-    uint64_t prime_;
-    uint64_t n_;
-    
-public:
-    explicit CrocsHash(uint64_t table_size) : n_(table_size) {
-        prime_ = GoldenPrimeFinder::find_golden_prime(n_);
-    }
-    
-    /**
-     * @brief Hash arbitrary data
-     */
-    template<Hashable T>
-    OutputType hash(const T& data) const {
-        return hash_bytes(std::data(data), std::size(data));
-    }
-    
-    /**
-     * @brief Hash raw bytes
-     */
-    OutputType hash_bytes(const void* data, size_t len) const {
-        const uint8_t* bytes = static_cast<const uint8_t*>(data);
-        uint64_t h = 0;
-        
-        // Main hash loop with mixing
-        constexpr int shift_amount = OutputBits / 2;
-        
-        for (size_t i = 0; i < len; ++i) {
-            h = h * prime_ + bytes[i];
-            h ^= h >> shift_amount;  // Mix bits
-        }
-        
-        // Final mixing
-        h *= prime_;
-        h ^= h >> (OutputBits - OutputBits / 3);
-        
-        // Reduce to output size
-        return static_cast<OutputType>((h & OUTPUT_MASK) % n_);
-    }
-    
-    uint64_t get_prime() const { return prime_; }
-    uint64_t get_table_size() const { return n_; }
-};
-
-/**
- * @brief Convenience aliases for common bit sizes
- */
-using CrocsHash8  = CrocsHash<8>;
-using CrocsHash16 = CrocsHash<16>;
-using CrocsHash24 = CrocsHash<24>;
-using CrocsHash32 = CrocsHash<32>;
-using CrocsHash48 = CrocsHash<48>;
-using CrocsHash64 = CrocsHash<64>;
-
-/**
- * @brief Advanced CROCS hash with customizable mixing functions
- */
-template<size_t OutputBits>
-class CrocsHashAdvanced : public CrocsHash<OutputBits> {
-public:
-    using MixFunction = std::function<uint64_t(uint64_t, int)>;
-    using FinalizeFunction = std::function<uint64_t(uint64_t, uint64_t)>;
-    
-private:
-    MixFunction mixer_;
-    FinalizeFunction finalizer_;
-    
-public:
-    CrocsHashAdvanced(uint64_t table_size,
-                      MixFunction mixer = nullptr,
-                      FinalizeFunction finalizer = nullptr) 
-        : CrocsHash<OutputBits>(table_size) {
-        
-        if (!mixer) {
-            mixer_ = [](uint64_t h, int bits) {
-                return h ^ (h >> (bits / 2));
-            };
-        } else {
-            mixer_ = mixer;
-        }
-        
-        if (!finalizer) {
-            finalizer_ = [](uint64_t h, uint64_t prime) {
-                h *= prime;
-                h ^= h >> 27;
-                return h;
-            };
-        } else {
-            finalizer_ = finalizer;
-        }
-    }
-    
-    // Additional methods for experimentation...
-};
-
-} // namespace goldenhash
+} 

@@ -1,0 +1,188 @@
+{
+  "overall": {
+    "count": 5000,
+    "avalanche_mean": 0.49140828980000006,
+    "avalanche_std": 0.008172767507323434,
+    "chi_square_mean": 1.0001570708,
+    "chi_square_std": 0.015579357382173234,
+    "collision_ratio_mean": 1.0033400378,
+    "collision_ratio_std": 0.42350500788837014
+  },
+  "prime": {
+    "count": 180,
+    "avalanche_mean": 0.4899905555555556,
+    "chi_square_mean": 0.9995477833333333,
+    "collision_ratio_mean": 1.002582461111111
+  },
+  "composite": {
+    "count": 4820,
+    "avalanche_mean": 0.4914612342323651,
+    "chi_square_mean": 1.0001798242738589,
+    "collision_ratio_mean": 1.003368329045643
+  },
+  "quality": {
+    "good_avalanche_pct": 99.9,
+    "good_chi_square_pct": 99.44,
+    "good_collision_pct": 81.44
+  },
+  "best": {
+    "avalanche": {
+      "table_size": 62807,
+      "unique_hashes": 4822,
+      "distribution_uniformity": 0.0039742,
+      "total_collisions": 178,
+      "expected_collisions": 193.845,
+      "collision_ratio": 0.918262,
+      "max_bucket_load": 3,
+      "avalanche_score": 0.5,
+      "chi_square": 0.991991,
+      "prime_high": 38821,
+      "prime_low": 23993,
+      "working_modulus": 62807,
+      "test_vectors": {
+        "empty": 462,
+        "a": 4159,
+        "abc": 29971,
+        "message_digest": 20520,
+        "alphabet": 18836,
+        "alphanumeric": 1773,
+        "fox": 33902
+      },
+      "factors": "181, 347",
+      "performance_ns_per_hash": 266.2,
+      "is_prime": false
+    },
+    "chi_square": {
+      "table_size": 284089,
+      "unique_hashes": 4956,
+      "distribution_uniformity": 0.00187617,
+      "total_collisions": 44,
+      "expected_collisions": 43.7433,
+      "collision_ratio": 1.00587,
+      "max_bucket_load": 2,
+      "avalanche_score": 0.478656,
+      "chi_square": 1.0,
+      "prime_high": 175573,
+      "prime_low": 108517,
+      "working_modulus": 284089,
+      "test_vectors": {
+        "empty": 192255,
+        "a": 102480,
+        "abc": 93945,
+        "message_digest": 144021,
+        "alphabet": 126986,
+        "alphanumeric": 31609,
+        "fox": 91683
+      },
+      "factors": "13, 13, 41, 41",
+      "performance_ns_per_hash": 306.4,
+      "is_prime": false
+    },
+    "collision": {
+      "table_size": 1988100,
+      "unique_hashes": 5000,
+      "distribution_uniformity": 0.000708327,
+      "total_collisions": 0,
+      "expected_collisions": 6.28214,
+      "collision_ratio": 0.0,
+      "max_bucket_load": 1,
+      "avalanche_score": 0.499553,
+      "chi_square": 0.997485,
+      "prime_high": 1228693,
+      "prime_low": 759377,
+      "working_modulus": 1988100,
+      "test_vectors": {
+        "empty": 1758612,
+        "a": 1745093,
+        "abc": 1288716,
+        "message_digest": 1418021,
+        "alphabet": 213053,
+        "alphanumeric": 1496764,
+        "fox": 1734781
+      },
+      "factors": "2, 2, 3, 3, 5, 5, 47, 47",
+      "performance_ns_per_hash": 301.4,
+      "is_prime": false
+    }
+  },
+  "worst": {
+    "avalanche": {
+      "table_size": 259,
+      "unique_hashes": 259,
+      "distribution_uniformity": 0.0648545,
+      "total_collisions": 4741,
+      "expected_collisions": 4741.0,
+      "collision_ratio": 1.0,
+      "max_bucket_load": 34,
+      "avalanche_score": 0.445595,
+      "chi_square": 1.08938,
+      "prime_high": 157,
+      "prime_low": 97,
+      "working_modulus": 259,
+      "test_vectors": {
+        "empty": 177,
+        "a": 2,
+        "abc": 236,
+        "message_digest": 23,
+        "alphabet": 1,
+        "alphanumeric": 198,
+        "fox": 160
+      },
+      "factors": "7, 37",
+      "performance_ns_per_hash": 276.8,
+      "is_prime": false
+    },
+    "chi_square": {
+      "table_size": 262,
+      "unique_hashes": 262,
+      "distribution_uniformity": 0.0714739,
+      "total_collisions": 4738,
+      "expected_collisions": 4738.0,
+      "collision_ratio": 1.0,
+      "max_bucket_load": 35,
+      "avalanche_score": 0.448822,
+      "chi_square": 1.33843,
+      "prime_high": 163,
+      "prime_low": 101,
+      "working_modulus": 262,
+      "test_vectors": {
+        "empty": 154,
+        "a": 155,
+        "abc": 249,
+        "message_digest": 222,
+        "alphabet": 212,
+        "alphanumeric": 238,
+        "fox": 202
+      },
+      "factors": "2, 131",
+      "performance_ns_per_hash": 272.0,
+      "is_prime": false
+    },
+    "collision": {
+      "table_size": 9784384,
+      "unique_hashes": 4994,
+      "distribution_uniformity": 0.000319995,
+      "total_collisions": 6,
+      "expected_collisions": 1.27733,
+      "collision_ratio": 4.6973,
+      "max_bucket_load": 2,
+      "avalanche_score": 0.487285,
+      "chi_square": 1.00189,
+      "prime_high": 6047089,
+      "prime_low": 3737311,
+      "working_modulus": 9784384,
+      "test_vectors": {
+        "empty": 5596925,
+        "a": 2376873,
+        "abc": 4112174,
+        "message_digest": 3244701,
+        "alphabet": 9136221,
+        "alphanumeric": 6971855,
+        "fox": 9573299
+      },
+      "factors": "2, 2, 2, 2, 2, 2, 17, 17, 23, 23",
+      "performance_ns_per_hash": 479.6,
+      "is_prime": false
+    }
+  }
+}

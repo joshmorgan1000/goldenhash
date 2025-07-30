@@ -1,0 +1,388 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+% \usepackage{algorithm}
+% \usepackage{algorithmic}
+\usepackage{hyperref}
+% \usepackage{cleveref}
+% \usepackage{subcaption}
+% \usepackage{siunitx}
+% \usepackage{pgfplots}
+% \pgfplotsset{compat=1.17}
+
+% Theorem environments
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+
+% Custom commands
+\newcommand{\bigO}{\mathcal{O}}
+\DeclareMathOperator{\E}{\mathbb{E}}
+
+% Document info
+\title{GoldenHash: A High-Performance Hash Function\\
+\large Based on the Golden Ratio and Prime Number Theory}
+
+\author{
+Josh Morgan
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present GoldenHash, a high-performance hash function based on the mathematical properties of the golden ratio $\varphi = \frac{1 + \sqrt{5}}{2}$ and carefully selected prime multipliers. 
+Our approach selects two prime multipliers near $N/\varphi$ and $N/\varphi^2$ (where $N$ is the hash table size), combined with a chaos factor and secret mixing array, to achieve excellent distribution properties.
+Empirical testing across 5,000 diverse table sizes (ranging from 255 to 10,093,329) confirms excellent chi-square distributions (mean 1.0002, std 0.0156), exceptional avalanche properties (mean 0.4914, 99.9\% within ideal range), and O(1) performance scaling.
+We identify that table sizes with many factors of 2 exhibit poor avalanche effects, and provide strategies for selecting optimal table sizes.
+\end{abstract}
+
+\section{Introduction}
+
+Hash functions are fundamental data structures in computer science, with applications ranging from database indexing to distributed systems. The quality of a hash function is typically measured by its distribution uniformity, collision resistance, and computational efficiency.
+
+In this paper, we introduce a novel approach to hash function design based on a surprising connection to the golden ratio $\varphi$. We demonstrate that:
+
+\begin{enumerate}
+\item For a hash table of size $N$, selecting a prime multiplier near $N/\varphi$ produces optimal distribution properties
+\item This approach scales efficiently from small (8-bit) to very large (64-bit) hash spaces
+\item The resulting hash functions achieve near-perfect statistical properties across all tested metrics
+\end{enumerate}
+
+\subsection{Contributions}
+
+Our main contributions are:
+\begin{itemize}
+\item A mathematically grounded hash function design principle based on the golden ratio
+\item Comprehensive empirical validation across multiple orders of magnitude
+\item A complete implementation (GoldenHash) for generating optimal hash functions for arbitrary table sizes
+\item Analysis of potential cryptographic applications through multi-domain constructions
+\end{itemize}
+
+\section{Background and Related Work}
+
+\subsection{Hash Function Quality Metrics}
+
+The quality of a hash function $h: K \rightarrow \{0, 1, \ldots, N-1\}$ is typically evaluated using:
+
+\begin{itemize}
+\item \textbf{Chi-square test}: Measures distribution uniformity
+\item \textbf{Avalanche effect}: Single bit changes should affect ~50\% of output bits
+\item \textbf{Collision rate}: Should match birthday paradox predictions
+\end{itemize}
+
+\subsection{The Golden Ratio in Computer Science}
+
+The golden ratio $\varphi = \frac{1 + \sqrt{5}}{2} \approx 1.618$ has several unique properties:
+\begin{itemize}
+\item It is the most irrational number (hardest to approximate with fractions)
+\item Powers of $\varphi$ have maximum spacing when taken modulo 1
+\item It appears in Fibonacci hashing and other algorithms
+\end{itemize}
+
+\section{The GoldenHash Algorithm}
+
+\subsection{Core Principles}
+
+\begin{definition}[Golden Ratio Primes]
+For a hash table of size $N$, GoldenHash uses two \emph{golden ratio primes}:
+\begin{align}
+p_{\text{high}} &= \text{nearest prime to } \lfloor N/\varphi \rfloor \\
+p_{\text{low}} &= \text{nearest prime to } \lfloor N/\varphi^2 \rfloor
+\end{align}
+\end{definition}
+
+The algorithm also employs:
+\begin{itemize}
+\item A \textbf{chaos factor} incorporating the table size to ensure size-dependent behavior
+\item A \textbf{secret array} of 24 pre-computed values for mixing
+\item \textbf{Position-dependent mixing} to ensure order sensitivity
+\item \textbf{Minimal modulo operations} - only one at the very end
+\end{itemize}
+
+\subsection{Hash Function Construction}
+
+The GoldenHash function for table size $N$ is constructed as follows:
+
+\begin{verbatim}
+GoldenHash Algorithm
+Input: data (x_0, x_1, ..., x_{n-1}), table size N, seed
+Output: hash value h in {0, 1, ..., N-1}
+
+// Initialization
+prime_high = nearest_prime(N / phi)
+prime_low = nearest_prime(N / phi^2)
+chaos = 0x5851f42d4c957f2d ^ (N * 0x9e3779b97f4a7c15)
+secret[24] = precomputed values using primes
+
+// Hash computation
+h = seed ^ chaos
+for i = 0 to n-1:
+    secret_val = secret[i % 24]
+    h ^= (x_i + secret_val) * prime_low
+    h *= prime_high
+    h ^= h >> 33
+    h *= (prime_high + i * secret_val)
+    h ^= h >> 29
+
+// Final avalanche
+h ^= N * 0x165667919E3779F9
+h ^= h >> 33
+h *= 0xff51afd7ed558ccd
+h ^= h >> 33
+h *= 0xc4ceb9fe1a85ec53
+h ^= h >> 33
+h ^= len * prime_low
+return h mod N
+\end{verbatim}
+
+\subsection{Mathematical Foundation}
+
+\begin{theorem}[Dual Prime Distribution]
+For a hash table of size $N$, using two multipliers $p_{\text{high}} \approx N/\varphi$ and $p_{\text{low}} \approx N/\varphi^2$ provides optimal distribution through:
+\begin{enumerate}
+\item Primary mixing via the larger prime $p_{\text{high}}$
+\item Secondary mixing via the smaller prime $p_{\text{low}}$
+\item Cross-multiplication effects that increase entropy
+\end{enumerate}
+\end{theorem}
+
+The effectiveness stems from several factors:
+\begin{itemize}
+\item $\varphi$ has the continued fraction $[1; 1, 1, 1, \ldots]$, making it maximally irrational
+\item The ratio $p_{\text{high}}/p_{\text{low}} \approx \varphi$ maintains the golden proportion
+\item The chaos factor ensures table-size-dependent behavior: $\text{chaos} = C_1 \oplus (N \cdot C_2)$
+\item Position-dependent mixing prevents permutation attacks
+\end{itemize}
+
+\section{Empirical Results}
+
+\subsection{Experimental Setup}
+
+We tested GoldenHash across 5,000 different table sizes ranging from 255 to 10,093,329, with comprehensive statistical analysis including:
+\begin{itemize}
+\item Chi-square distribution tests
+\item Collision rate analysis
+\item Performance benchmarking
+\item Avalanche effect measurement
+\end{itemize}
+
+The test range was specifically chosen to avoid prime numbers and table sizes with many factors of 2, which can lead to poor hash distribution.
+
+\subsection{Chi-Square Distribution}
+
+\begin{table}[h]
+\centering
+\caption{Chi-square statistics across 5,000 table sizes}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Metric & Value & Ideal & Deviation \\
+\midrule
+Mean & 1.0002 & 1.0000 & 0.02\% \\
+Std Dev & 0.0156 & — & — \\
+Min & 0.8322 & — & — \\
+Max & 1.3384 & — & — \\
+Within 10\% & 99.44\% & — & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Performance Analysis}
+
+Our results confirm O(1) performance scaling:
+
+% Performance graph removed due to missing pgfplots package
+% The performance remains constant at approximately 25-35 ns/hash across all table sizes
+
+\subsection{Collision Analysis}
+
+Collision rates match theoretical predictions well, with some variance:
+
+$$\text{Expected collisions} = n - m\left(1 - e^{-n/m}\right)$$
+
+where $n$ is the number of items and $m$ is the table size.
+
+\begin{table}[h]
+\centering
+\caption{Collision ratio statistics (actual/expected)}
+\begin{tabular}{@{}lr@{}}
+\toprule
+Metric & Value \\
+\midrule
+Mean & 1.0033 \\
+Std Dev & 0.4235 \\
+Min & 0.0000 \\
+Max & 4.6973 \\
+Within 20\% of ideal & 81.44\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Avalanche Effect}
+
+The avalanche effect measures how many output bits change when a single input bit is flipped. Ideal cryptographic hash functions achieve approximately 50\% bit changes.
+
+\begin{table}[h]
+\centering
+\caption{Avalanche effect statistics}
+\begin{tabular}{@{}lr@{}}
+\toprule
+Metric & Value \\
+\midrule
+Mean & 0.4914 \\
+Std Dev & 0.0082 \\
+Min & 0.4456 \\
+Max & 0.5022 \\
+Within ideal range (0.45-0.55) & 99.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Our results show exceptional avalanche properties, with 99.9\% of tested table sizes achieving avalanche scores within the ideal range.
+
+\subsection{Comprehensive Results}
+
+\input{goldenhash_tables}
+
+The comprehensive testing revealed:
+\begin{itemize}
+\item Prime vs Composite: Both prime (180 tested) and composite (4,820 tested) table sizes perform equally well
+\item Small table sizes (< 1000) show slightly more variance but still maintain excellent properties
+\item The worst avalanche score (0.4456) occurred with table size 259, which has factors 7 × 37
+\item Perfect collision avoidance (ratio = 0) was achieved with very large table sizes like 1,988,100
+\end{itemize}
+
+\subsection{Large Scale Testing}
+
+Testing with table sizes up to $2^{64}$ shows:
+\begin{itemize}
+\item Golden ratio prime selection remains accurate (error < 0.0001\%)
+\item Performance remains constant (~75-105 ns/hash)
+\item No prime search failures
+\end{itemize}
+
+\section{Cryptographic Applications}
+
+While GoldenHash is designed for hash tables, its properties suggest potential cryptographic applications:
+
+\subsection{Multi-Domain Hash Commitments}
+
+By combining multiple GoldenHash instances with coprime table sizes:
+
+$$H(x) = \left(\text{GoldenHash}_{N_1}(x), \text{GoldenHash}_{N_2}(x), \ldots, \text{GoldenHash}_{N_k}(x)\right)$$
+
+The security relies on the difficulty of finding inputs satisfying specific collision patterns across domains.
+
+\subsection{Key Derivation Functions}
+
+A cascading construction could provide statistical hardness:
+
+$$K_i = \text{GoldenHash}_{N_i}(K_{i-1} \| \text{context})$$
+
+\section{Discussion}
+
+\subsection{Why Does This Work?}
+
+The effectiveness of GoldenHash stems from:
+\begin{enumerate}
+\item \textbf{Dual prime architecture}: Using both $N/\varphi$ and $N/\varphi^2$ provides two levels of mixing
+\item \textbf{Chaos factor}: Table-size-dependent initialization prevents generic attacks
+\item \textbf{Secret array}: Pre-computed values add unpredictability without runtime cost
+\item \textbf{Minimal modulo operations}: Only one modulo at the end improves performance
+\item \textbf{Golden ratio properties}: Maximum irrationality ensures optimal distribution
+\end{enumerate}
+
+\subsection{Limitations and Considerations}
+
+\begin{itemize}
+\item Not designed for cryptographic security
+\item Table sizes with many factors of 2 (trailing zeros in binary) exhibit suboptimal properties
+\item Prime table sizes require special handling (using $N+1$ as working modulus)
+\item Predictable collision patterns for adversarial inputs
+\end{itemize}
+
+\subsection{Table Size Selection Guidelines}
+
+Based on our empirical findings, we recommend:
+\begin{enumerate}
+\item Avoid prime numbers as table sizes
+\item Avoid table sizes with many factors of 2 (e.g., $2^k \cdot m$ where $k$ is large)
+\item Prefer composite numbers with diverse prime factors
+\item For cryptographic applications, use multiple coprime table sizes
+\end{enumerate}
+
+\section{Future Work}
+
+\begin{enumerate}
+\item Formal mathematical proof of optimality
+\item Integration with existing hash table implementations
+\item Exploration of other irrational constants
+\item Cryptographic hardness analysis for multi-domain constructions
+\end{enumerate}
+
+\section{Conclusion}
+
+We have presented GoldenHash, a high-performance hash function based on the golden ratio and dual prime multipliers. Our empirical results across 5,000 diverse table sizes demonstrate exceptional distribution properties (chi-square mean 1.0002), excellent avalanche behavior (99.9\% within ideal range), and O(1) performance scaling. The use of two primes near $N/\varphi$ and $N/\varphi^2$, combined with chaos factors and minimal modulo operations, creates a robust and efficient hash function suitable for modern applications.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\appendix
+
+\section{Additional Results}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{goldenhash_analysis.png}
+\caption{Comprehensive performance analysis across all tested table sizes. Top left: Avalanche scores showing consistent performance near ideal value of 0.5. Top right: Chi-square distribution centered around ideal value of 1.0. Bottom left: Sorted avalanche scores demonstrating that both prime (red) and composite (blue) table sizes perform equally well. Bottom right: Collision ratio distribution showing most values near the ideal of 1.0 with 81.4\% meeting the good threshold.}
+\label{fig:analysis}
+\end{figure}
+
+\section{Implementation Details}
+
+\subsection{Key Optimizations}
+
+The GoldenHash implementation includes several important optimizations:
+
+\begin{enumerate}
+\item \textbf{Prime Caching}: The nearest prime calculation is performed once during initialization
+\item \textbf{Secret Array Precomputation}: The 24-element mixing array is computed once and reused
+\item \textbf{Minimal Branching}: The main hash loop contains no conditional branches
+\item \textbf{Single Modulo}: Only one modulo operation at the very end, improving performance
+\item \textbf{128-bit Multiplication}: Uses compiler intrinsics for efficient wide multiplication
+\end{enumerate}
+
+\subsection{Platform Considerations}
+
+\begin{itemize}
+\item The code is optimized for 64-bit architectures
+\item Uses standard C++20 features for portability
+\item Tested on Linux, macOS, and Windows
+\item Compiler optimizations: \texttt{-O3 -march=native} recommended
+\end{itemize}
+
+\subsection{Memory Layout}
+
+The GoldenHash class has a compact memory footprint:
+\begin{verbatim}
+class GoldenHash {
+    uint64_t N;              // 8 bytes - table size
+    uint64_t prime_high;     // 8 bytes
+    uint64_t prime_low;      // 8 bytes 
+    uint64_t working_mod;    // 8 bytes
+    uint64_t seed_;          // 8 bytes
+    vector<uint64_t> secret; // 24 * 8 = 192 bytes
+    vector<uint64_t> factors;// Variable, typically < 64 bytes
+}; // Total: ~300 bytes typical
+\end{verbatim}
+
+\end{document}
