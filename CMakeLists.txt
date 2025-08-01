@@ -41,6 +41,9 @@ target_link_libraries(cipher_test PRIVATE goldenhash m)
 add_executable(sentiment_demo src/sentiment_demo.cpp)
 target_link_libraries(sentiment_demo PRIVATE goldenhash m)
 
+add_executable(zkp_test src/zkp_test.cpp)
+target_link_libraries(zkp_test PRIVATE goldenhash m)
+
 # Ollama support (optional)
 if(CURL_FOUND)
     # Static library with Ollama support

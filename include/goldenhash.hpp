@@ -359,7 +359,7 @@ public:
         for (size_t i = 0; i < test_data.size(); i++) {
             const auto& data = test_data[i];
             uint64_t h = hasher.hash(data.data(), data.size());
-            if (i & 0xFFF == 0) {
+            if ((i & 0xFFF) == 0) {
                 ss << h << " ";
             }
         }
@@ -401,7 +401,7 @@ public:
             high_size++;
         }
         for (int64_t i = low_size; i <= high_size; i += multiple_of) {
-            if (i < 1000 || i > std::numeric_limits<uint64_t>::max() - 1000) {
+            if (i < 500 || i > std::numeric_limits<uint64_t>::max() - 500) {
                 std::cout << "Size is too small or too large for GoldenHash: " << i << "\n";
                 return;
             }

@@ -36,9 +36,6 @@ using namespace goldenhash;
  * @brief Main function - run all tests
  */
 int main(int argc, char* argv[]) {
-    uint64_t other_golden = GOLDEN_RATIO * 0xFFFF;
-    std::cout << "Golden Ratio: " << other_golden << "\n";
-
     if (argc == 2) {
         uint64_t target_size = std::stoull(argv[1]);
         std::cout << "Finding best hash table size for target: " << target_size << "...\n";

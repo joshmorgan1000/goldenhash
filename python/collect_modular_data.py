@@ -161,7 +161,7 @@ def main():
     
     # Define range
     start_n = 0
-    end_n = 65535
+    end_n = 65535 * 16
     
     # Count total and estimate time
     total_count = end_n - start_n + 1
@@ -187,7 +187,7 @@ def main():
     #for n in range(start_n, end_n + 6):
     for num in tqdm.tqdm(range(start_n, end_n), unit="N"):
         # n = (num * 6) + 1679616
-        n = pow(num, GOLDEN_RATIO) + 65535
+        n = num + 67536 + 65535
         # Skip if already exists (for resume functionality)
         if collector.table_size_exists(n):
             skipped += 1
