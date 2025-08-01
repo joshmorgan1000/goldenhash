@@ -27,6 +27,7 @@
 #include <map>
 #include <set>
 #include <cmath>
+#include <cstdlib>
 #include <algorithm>
 #include <numeric>
 #include <random>
@@ -37,10 +38,12 @@
 #include <string>
 #include <span>
 #include <iostream>
+#include <unordered_map>
 
 namespace goldenhash {
 
-static const long double GOLDEN_RATIO = (1 + std::sqrt(5)) / 2; // Golden ratio constant
+static const long double GOLDEN_RATIO = (1 + std::sqrt(5)) / 2;
+static const long double GOLDEN_FRACTIONAL_PART = (std::sqrt(5) - 1) / 2;
 
 #ifdef __has_include
 #  if __has_include(<json/json.h>)
@@ -63,6 +66,75 @@ struct MetricResult {
     std::string unit;
     std::string description;
     std::map<std::string, double> details;
+};
+
+struct CollectiveMetrics {
+    uint64_t unique_hashes;
+    uint64_t total_collisions;
+    double distribution_uniformity;
+    double expected_collisions;
+    double collision_ratio;
+    uint64_t max_bucket_load;
+    double avalanche_score;
+    double chi_square;
+    uint64_t table_size;
+    uint64_t prime_high;
+    uint64_t prime_low;
+    uint64_t working_modulus;
+    double performance_ns_per_hash;
+    std::vector<uint64_t> factors{};
+    bool is_better_than(const CollectiveMetrics& other) const {
+        double score = 0;
+        score -= ((0.5 - avalanche_score) * (0.5 - avalanche_score)) - ((0.5 - other.avalanche_score) * (0.5 - other.avalanche_score));
+        score -= ((1.0 - chi_square) * (1.0 - chi_square)) - ((1.0 - other.chi_square) * (1.0 - other.chi_square));
+        return score > 0;
+    }
+    std::string to_json() {
+        std::stringstream ss;
+        ss << "{\n";
+        ss << "  \"unique_hashes\": " << unique_hashes << ",\n";
+        ss << "  \"total_collisions\": " << total_collisions << ",\n";
+        ss << "  \"distribution_uniformity\": " << distribution_uniformity << ",\n";
+        ss << "  \"expected_collisions\": " << expected_collisions << ",\n";
+        ss << "  \"collision_ratio\": " << collision_ratio << ",\n";
+        ss << "  \"max_bucket_load\": " << max_bucket_load << ",\n";
+        ss << "  \"avalanche_score\": " << avalanche_score << ",\n";
+        ss << "  \"chi_square\": " << chi_square << ",\n";
+        ss << "  \"table_size\": " << table_size << ",\n";
+        ss << "  \"prime_high\": " << prime_high << ",\n";
+        ss << "  \"prime_low\": " << prime_low << ",\n";
+        ss << "  \"working_modulus\": " << working_modulus << ",\n";
+        ss << "  \"performance_ns_per_hash\": " << performance_ns_per_hash << ",\n";
+        ss << "  \"factors\": [";
+        for (size_t i = 0; i < factors.size(); i++) {
+            ss << factors[i];
+            if (i < factors.size() - 1) ss << ", ";
+        }
+        ss << "]\n";
+        ss << "}\n";
+        return ss.str();
+    }
+    std::string to_summary() {
+        std::stringstream ss;
+        ss << "Unique: " << unique_hashes
+           << " Collisions: " << total_collisions
+           << " Expected: " << expected_collisions
+           << " Distribution: " << distribution_uniformity
+           << " Ratio: " << collision_ratio
+           << " Max load: " << max_bucket_load
+           << " Avalanche: " << avalanche_score
+           << " Chi^2: " << chi_square
+           << " Size: " << table_size
+           << " High: " << prime_high
+           << " Low: " << prime_low
+           << " Mod: " << working_modulus
+           << " ns/hash: " 
+           << std::fixed 
+           << std::setprecision(2) 
+           << performance_ns_per_hash 
+           << "\n";
+        return ss.str();
+    }
 };
 
 /**
@@ -141,6 +213,221 @@ public:
      * @return Vector of factors
      */
     const std::vector<uint64_t>& get_factors() const;
+
+    /**
+     * @brief Runs a round of tests for a single table size
+     * @param table_size Size of the hash table to test
+     * @param num_tests Number of tests to run
+     * @return CollectiveMetrics containing the results of the tests
+     */
+    static CollectiveMetrics run_tests_for(uint64_t table_size, uint64_t num_tests) {
+        GoldenHash hasher(table_size);
+        // Generate test data
+        std::mt19937_64 rng(42);
+        std::vector<std::vector<uint8_t>> test_data;
+        for (size_t i = 0; i < num_tests; i++) {
+            std::vector<uint8_t> data(16 + (i % 48)); // Vary size 16-64 bytes
+            for (auto& byte : data) {
+                byte = rng() & 0xFF;
+            }
+            test_data.push_back(data);
+        }
+        // Hash and collect statistics, including avalanche
+        std::vector<uint64_t> hash_counts(table_size, 0);
+        size_t total_bit_changes = 0;
+        size_t total_bit_tests = 0;
+        auto start = std::chrono::high_resolution_clock::now();
+        for (size_t i = 0; i < test_data.size(); i++) {
+            const auto& data = test_data[i];
+            uint64_t h = hasher.hash(data.data(), data.size());
+            hash_counts[h]++;
+            // Test avalanche for a subset of inputs (every 100th) to keep performance reasonable
+            if (i % 100 == 0) {
+                // Test single bit flips
+                for (size_t byte_idx = 0; byte_idx < data.size() && byte_idx < 32; byte_idx++) {
+                    for (int bit = 0; bit < 8; bit++) {
+                        // Make a copy and flip bit
+                        std::vector<uint8_t> modified = data;
+                        modified[byte_idx] ^= (1 << bit);
+                        // Hash modified
+                        uint64_t h2 = hasher.hash(modified.data(), modified.size());
+                        // Count differing bits (only bits that matter for table_size)
+                        uint64_t diff = h ^ h2;
+                        // For small table sizes, only count relevant bits
+                        int bits_to_count = 64;
+                        if (table_size < (1ULL << 32)) {
+                            bits_to_count = 32 - __builtin_clz(table_size - 1) + 1;
+                        }
+                        uint64_t mask = (bits_to_count >= 64) ? ~0ULL : ((1ULL << bits_to_count) - 1);
+                        total_bit_changes += __builtin_popcountll(diff & mask);
+                        total_bit_tests++;
+                    }
+                }
+            }
+        }
+        
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        
+        // Calculate statistics
+        uint64_t unique_hashes = 0;
+        uint64_t max_collisions = 0;
+        double expected = double(num_tests) / table_size;
+        double chi_square = 0.0;
+        
+        for (uint64_t count : hash_counts) {
+            if (count > 0) unique_hashes++;
+            if (count > max_collisions) max_collisions = count;
+            
+            double diff = count - expected;
+            chi_square += (diff * diff) / expected;
+        }
+        chi_square /= table_size;
+        
+        uint64_t total_collisions = num_tests - unique_hashes;
+        
+        // Calculate expected collisions (birthday paradox)
+        double expected_unique = table_size * (1.0 - std::exp(-double(num_tests) / table_size));
+        double expected_collisions = num_tests - expected_unique;
+        double collision_ratio = (expected_collisions > 0) ? total_collisions / expected_collisions : 1.0;
+        
+        // Calculate avalanche score
+        // For modular hashing, we need to account for the limited output space
+        int output_bits = (table_size < 2) ? 1 : (64 - __builtin_clzll(table_size - 1));
+        double avalanche_score = (total_bit_tests > 0) ? 
+            double(total_bit_changes) / (total_bit_tests * output_bits) : 0.0;
+        
+        // Hash standard test vectors
+        struct TestVector {
+            const char* str;
+            const char* name;
+        };
+        
+        TestVector vectors[] = {
+            {"", "empty"},
+            {"a", "a"},
+            {"abc", "abc"},
+            {"message digest", "message_digest"},
+            {"abcdefghijklmnopqrstuvwxyz", "alphabet"},
+            {"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", "alphanumeric"},
+            {"The quick brown fox jumps over the lazy dog", "fox"}
+        };
+        
+        std::vector<std::pair<std::string, uint64_t>> test_hashes;
+        for (const auto& vec : vectors) {
+            uint64_t h = hasher.hash(reinterpret_cast<const uint8_t*>(vec.str), strlen(vec.str));
+            test_hashes.push_back({vec.name, h});
+        }
+
+        CollectiveMetrics metrics;
+        metrics.table_size = table_size;
+        metrics.unique_hashes = unique_hashes;
+        metrics.distribution_uniformity = std::sqrt(chi_square / table_size);
+        metrics.total_collisions = total_collisions;
+        metrics.expected_collisions = expected_collisions;
+        metrics.collision_ratio = collision_ratio;
+        metrics.avalanche_score = avalanche_score;
+        metrics.chi_square = chi_square;
+        metrics.prime_high = hasher.get_prime_high();
+        metrics.prime_low = hasher.get_prime_low();
+        metrics.working_modulus = hasher.get_working_mod();
+        metrics.factors = hasher.get_factors();
+        metrics.performance_ns_per_hash = (duration.count() * 1000.0 / num_tests);
+        return metrics;
+    }
+
+    /**
+     * @brief Runs a round of tests for a single table size
+     * @param table_size Size of the hash table to test
+     * @param num_tests Number of tests to run
+     * @return The number of hashes per nanosecond for the given table size
+     */
+    static double speed_test(uint64_t table_size, uint64_t num_tests) {
+        GoldenHash hasher(table_size);
+        // Generate test data
+        std::mt19937_64 rng(42);
+        std::vector<std::vector<uint8_t>> test_data;
+        for (size_t i = 0; i < num_tests; i++) {
+            std::vector<uint8_t> data(16 + (i % 48)); // Vary size 16-64 bytes
+            for (auto& byte : data) {
+                byte = rng() & 0xFF;
+            }
+            test_data.push_back(data);
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        std::stringstream ss;
+        for (size_t i = 0; i < test_data.size(); i++) {
+            const auto& data = test_data[i];
+            uint64_t h = hasher.hash(data.data(), data.size());
+            if (i & 0xFFF == 0) {
+                ss << h << " ";
+            }
+        }
+        
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+
+        // Calculate how many ns per hash
+        return double(num_tests) / (duration.count());
+    }
+
+    /**
+     * @brief Find the hash table with the best metrics for a given target
+     * 
+     * This function searches for the best hash table size based on the target size,
+     * compares avalanche effect, collision rate, chi-square distribution, and
+     * number of collisions vs. expected collisions based on the birthday paradox.
+     * 
+     * @param target_size Target size for the hash table
+     * @param multiple_of Multiple of which the table size should be a multiple of (default: 1)
+     * @param interations_to_search Number of iterations to search for the best table size (default: 100)
+     * @param seeds_to_check Number of different seeds to check for the best table size (default: 20)
+     */
+    static void find_best_table_size(int64_t target_size,
+                                     int64_t sizes_to_check = 1000,
+                                     int64_t multiple_of = 1, 
+                                     int64_t interations_to_search = 20000) {
+        // Find a range between target_size where the modulus of the target size is == multiple_of, between -500 and +500 of target_size
+        CollectiveMetrics best_metrics;
+        bool value_collectd = false;
+        // Find a range between target_size where the modulus of the target size is == multiple_of, between -500 and +500 of target_size
+        int64_t halfway = sizes_to_check / 2 * multiple_of;
+        int64_t low_size = target_size - halfway;
+        int64_t high_size = target_size + halfway;
+        while (low_size % multiple_of != 0) {
+            low_size++;
+        }
+        while (high_size % multiple_of != 0) {
+            high_size++;
+        }
+        for (int64_t i = low_size; i <= high_size; i += multiple_of) {
+            if (i < 1000 || i > std::numeric_limits<uint64_t>::max() - 1000) {
+                std::cout << "Size is too small or too large for GoldenHash: " << i << "\n";
+                return;
+            }
+            CollectiveMetrics new_metrics = run_tests_for(i, interations_to_search);
+            if (!value_collectd || new_metrics.is_better_than(best_metrics)) {
+                best_metrics = new_metrics;
+                value_collectd = true;
+                std::cout << "New best metrics found for size " << i << ":\n";
+                std::cout << best_metrics.to_summary();
+            }
+        }
+        if (!value_collectd) {
+            std::cout << "No suitable table size found in the range.\n";
+        } else {
+            std::cout << "Best metrics found:\n";
+            std::cout << best_metrics.to_json() << "\n"
+                      << "Now running a full barage of tests on this final size.\n";
+            double speed = speed_test(best_metrics.table_size, 1000000);
+            std::cout << "Speed test for best size " << best_metrics.table_size << ": "
+                      << std::fixed << std::setprecision(8)
+                      << speed << " ns/hash\n";
+            CollectiveMetrics final_metrics = run_tests_for(best_metrics.table_size, 1000000);
+            std::cout << "Final metrics after full barrage:\n";
+            std::cout << final_metrics.to_json() << "\n";
+        }
+    }
 
 private:
     uint64_t N;              // Table size
