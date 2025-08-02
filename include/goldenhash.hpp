@@ -401,7 +401,7 @@ public:
             high_size++;
         }
         for (int64_t i = low_size; i <= high_size; i += multiple_of) {
-            if (i < 500 || i > std::numeric_limits<uint64_t>::max() - 500) {
+            if ((i < 500) || i > std::numeric_limits<int64_t>::max() - 500) {
                 std::cout << "Size is too small or too large for GoldenHash: " << i << "\n";
                 return;
             }

@@ -1,0 +1,5 @@
+# ninja log v7
+1	420	1754110878232557001	CMakeFiles/goldenhash.dir/src/goldenhash.cpp.o	3b728f6906c59bc9
+421	447	1754110878652281103	lib/libgoldenhash.a	ffadd6da279a2c9a
+1	550	1754110878232885205	CMakeFiles/goldenhash_test.dir/src/main.cpp.o	c17a450a06f88429
+550	583	1754110878781547770	goldenhash_test	6fb6333a22b37d72
