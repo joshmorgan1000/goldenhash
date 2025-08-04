@@ -64,10 +64,17 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
         // Fill up sbox j
         for (size_t i = 0; i < SBOX_SIZE; i++) {
             // Mix using AND/OR operations with primes
+            /*
+            // Version 1: works *okay*.
             h = (h * prime_product) ^ prime_mod;
             h = (h * prime_low) ^ (prime_high * (i + 1));
             h = (h & ~prime_mixed) | (((h ^ prime_product) >> 13) ^ working_mod);
             h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
+            sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
+            */
+            // Version 2: hopefully better?
+            h = (h * prime_product) ^ prime_mod;
+            // h = ((h * prime_low) ^ (prime_high) * (i * prime_mixed)) & ~(working_mod - i);
             sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
         }
     }
@@ -91,112 +98,60 @@ GoldenHash::~GoldenHash() {
 uint64_t GoldenHash::hash(const uint8_t* data, size_t len) const {
     uint64_t h = initial_hash;
     uint64_t state = seed_ ^ prime_product;
-    
     size_t i = 0;
-    
     // Process 8 bytes at a time
     const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
     size_t len64 = len / 8;
-    
+    uint64_t sbox_index = ~state;
     for (size_t j = 0; j < len64; j++) {
         uint64_t chunk = data64[j];
-        
         // Mix the 64-bit chunk into state
         state ^= chunk;
         state *= prime_low;
         state ^= (state >> 17);
-        
         // Process all 8 bytes in parallel using S-boxes
         uint64_t mixed = state ^ h;
-        
         // Extract 5 x 12-bit indices from the 64-bit mixed value
-        uint64_t idx1 = mixed & 0xFFF;
-        uint64_t idx2 = (mixed >> 12) & 0xFFF;
-        uint64_t idx3 = (mixed >> 24) & 0xFFF;
-        uint64_t idx4 = (mixed >> 36) & 0xFFF;
-        uint64_t idx5 = (mixed >> 48) & 0xFFF;
-        
+        uint8_t c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+        uint8_t c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+        uint8_t c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+        uint8_t c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+        uint8_t c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
         // For remaining indices, mix state differently
         mixed = (state << 13) ^ (h >> 7);
-        uint64_t idx6 = mixed & 0xFFF;
-        uint64_t idx7 = (mixed >> 12) & 0xFFF;
-        uint64_t idx8 = (mixed >> 24) & 0xFFF;
-        
-        // Prefetch next round's S-box data if available
-        if (j + 1 < len64) {
-            uint64_t next_chunk = data64[j + 1];
-            uint64_t next_state = state ^ next_chunk;
-            next_state *= prime_low;
-            next_state ^= (next_state >> 17);
-            uint64_t next_mixed = next_state ^ h;
-            
-            // Prefetch first 5 S-boxes
-            __builtin_prefetch(&sboxes[0][next_mixed & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[1][(next_mixed >> 12) & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[2][(next_mixed >> 24) & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[3][(next_mixed >> 36) & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[4][(next_mixed >> 48) & 0xFFF], 0, 3);
-            
-            // Prefetch remaining 3 S-boxes
-            next_mixed = (next_state << 13) ^ (h >> 7);
-            __builtin_prefetch(&sboxes[5][next_mixed & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[6][(next_mixed >> 12) & 0xFFF], 0, 3);
-            __builtin_prefetch(&sboxes[7][(next_mixed >> 24) & 0xFFF], 0, 3);
-        }
-        
-        // Perform S-box lookups - unroll for better pipelining
-        uint8_t c1 = sboxes[0][idx1];
-        uint8_t c2 = sboxes[1][idx2];
-        uint8_t c3 = sboxes[2][idx3];
-        uint8_t c4 = sboxes[3][idx4];
-        uint8_t c5 = sboxes[4][idx5];
-        uint8_t c6 = sboxes[5][idx6];
-        uint8_t c7 = sboxes[6][idx7];
-        uint8_t c8 = sboxes[7][idx8];
-        
+        uint8_t c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+        uint8_t c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+        uint8_t c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
         // Combine all compressed values
         uint64_t compressed = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
                              ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
                              ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
                              ((uint64_t)c7 << 8) | c8;
-        
         h ^= compressed;
         h *= prime_high;
         h ^= (h >> 29);
-        
         i += 8;
     }
-    
     // Process remaining bytes
     for (; i < len; i++) {
         // Mix input byte into state
         state = (state << 8) | data[i];
         state *= prime_low;
         state ^= (state >> 17);
-        
         // Use 3 S-box compressions per byte for irreversibility
-        uint64_t idx1 = (state ^ h) & 0xFFF;
-        uint8_t compressed1 = sboxes[(i * 3) & 7][idx1];
-        
-        uint64_t idx2 = ((state >> 12) ^ (h >> 6)) & 0xFFF;
-        uint8_t compressed2 = sboxes[(i * 3 + 1) & 7][idx2];
-        
-        uint64_t idx3 = ((state >> 24) ^ (h >> 18)) & 0xFFF;
-        uint8_t compressed3 = sboxes[(i * 3 + 2) & 7][idx3];
-        
+        uint8_t compressed1 = sboxes[++sbox_index & 7][(state ^ h) & 0xFFF];
+        uint8_t compressed2 = sboxes[++sbox_index & 7][((state >> 12) ^ (h >> 6)) & 0xFFF];
+        uint8_t compressed3 = sboxes[++sbox_index & 7][((state >> 24) ^ (h >> 18)) & 0xFFF];
         h = (h << 24) | (compressed1 << 16) | (compressed2 << 8) | compressed3;
         h ^= state;
-        
         h *= prime_high;
         h ^= (h >> 29);
     }
-    
     // Final avalanche
     h ^= len * prime_mixed;
     h ^= (h >> 33);
     h *= prime_low;
     h ^= (h >> 27);
-    
     return h % N;
 }
 

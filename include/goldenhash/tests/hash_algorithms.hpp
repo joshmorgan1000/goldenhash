@@ -42,11 +42,19 @@ inline uint64_t compute_hash(const std::string& algo_name, uint8_t* data, size_t
         size_t mac_len = 16;
         unsigned char mac[16];
         
-        CMAC_CTX *ctx = CMAC_CTX_new();
-        CMAC_Init(ctx, key, 16, EVP_aes_128_cbc(), NULL);
-        CMAC_Update(ctx, data, len);
-        CMAC_Final(ctx, mac, &mac_len);
-        CMAC_CTX_free(ctx);
+        EVP_MAC *evp_mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
+        EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(evp_mac);
+        
+        OSSL_PARAM params[2];
+        params[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-CBC", 0);
+        params[1] = OSSL_PARAM_construct_end();
+        
+        EVP_MAC_init(ctx, key, 16, params);
+        EVP_MAC_update(ctx, data, len);
+        EVP_MAC_final(ctx, mac, &mac_len, sizeof(mac));
+        
+        EVP_MAC_CTX_free(ctx);
+        EVP_MAC_free(evp_mac);
         
         uint64_t truncated = 0;
         memcpy(&truncated, mac, sizeof(uint64_t));

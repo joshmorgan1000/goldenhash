@@ -19,16 +19,10 @@ private:
     sqlite3_stmt* insert_stmt;
     sqlite3_stmt* select_stmt;
     sqlite3_stmt* update_stmt;
-    uint64_t range_start;
-    uint64_t range_end;
-    uint64_t collision_count_{0};
-    uint64_t max_count_{0};
-    uint64_t unique_count_{0};
     std::atomic<bool> in_use{false};
 public:
 
-    SQLiteShard(std::string filename, int shard_id, uint64_t start, uint64_t end) 
-        : range_start(start), range_end(end) {
+    SQLiteShard(std::string filename) {
         
         // Open SQLite database
         if (sqlite3_open(filename.c_str(), &db) != SQLITE_OK) {
@@ -86,7 +80,7 @@ public:
     SQLiteShard(SQLiteShard&&) = delete;
     SQLiteShard& operator=(SQLiteShard&&) = delete;
     
-    bool process_hash(uint64_t hash) override {
+    void process_hash(uint64_t hash) override {
         // Spinlock acquisition
         bool expected = false;
         while (!in_use.compare_exchange_weak(expected, true, 
@@ -95,104 +89,19 @@ public:
             expected = false;
             std::this_thread::yield();
         }
-        // Check if hash exists
-        sqlite3_bind_blob(select_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
-        int count = 0;
-        if (sqlite3_step(select_stmt) == SQLITE_ROW) {
-            count = sqlite3_column_int(select_stmt, 0);
-        }
-        sqlite3_reset(select_stmt);
-        
-        bool collision = false;
-        if (count > 0) {
-            // Update existing
-            count++;  // Increment count to match what will be in database
-            if (count == 2) {
-                // This is the first collision for this hash
-                collision_count_++;
-                collision = true;
-            } else if (count > 2) {
-                // Subsequent collision
-                collision = true;
-            }
+        // Try to insert or update
+        sqlite3_bind_blob(insert_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
+        if (sqlite3_step(insert_stmt) != SQLITE_DONE) {
+            // Already exists, update count
+            sqlite3_reset(insert_stmt);
             sqlite3_bind_blob(update_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
             sqlite3_step(update_stmt);
             sqlite3_reset(update_stmt);
-            if (static_cast<uint64_t>(count) > max_count_) {
-                max_count_ = count;
-            }
         } else {
-            // Insert new
-            unique_count_++;
-            sqlite3_bind_blob(insert_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
-            sqlite3_step(insert_stmt);
             sqlite3_reset(insert_stmt);
-            if (1 > max_count_) {
-                max_count_ = 1;
-            }
-        }
-        // Commit periodically for better performance
-        if (((collision_count_ + unique_count_) & 0x3FFF) == 0) {
-            sqlite3_exec(db, "COMMIT; BEGIN TRANSACTION", nullptr, nullptr, nullptr);
         }
         // Release spinlock
         in_use.store(false, std::memory_order_release);
-        return collision;
-    }
-    
-    void commit_batch() {
-        bool expected = false;
-        while (!in_use.compare_exchange_weak(expected, true)) {
-            expected = false;
-            std::this_thread::yield();
-        }
-        
-        sqlite3_exec(db, "COMMIT; BEGIN TRANSACTION", nullptr, nullptr, nullptr);
-        
-        in_use.store(false, std::memory_order_release);
-    }
-
-    uint64_t get_unique() override {
-        bool expected = false;
-        while (!in_use.compare_exchange_strong(expected, true, 
-                std::memory_order_acquire, std::memory_order_relaxed)) {
-            expected = false;
-            std::this_thread::yield();
-        }
-        
-        // Get the actual count of unique hashes from the database
-        sqlite3_stmt* count_stmt;
-        sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM hash_counts", -1, &count_stmt, nullptr);
-        sqlite3_step(count_stmt);
-        uint64_t count = sqlite3_column_int64(count_stmt, 0);
-        sqlite3_finalize(count_stmt);
-        
-        in_use.store(false, std::memory_order_release);
-        return count;
-    }
-
-    uint64_t get_collisions() override {
-        bool expected = false;
-        while (!in_use.compare_exchange_strong(expected, true, 
-                std::memory_order_acquire, std::memory_order_relaxed)) {
-            expected = false;
-            std::this_thread::yield();
-        }
-        uint64_t count = collision_count_;
-        in_use.store(false, std::memory_order_release);
-        return count;
-    }
-    
-    uint64_t get_max_count() override {
-        bool expected = false;
-        while (!in_use.compare_exchange_strong(expected, true, 
-                std::memory_order_acquire, std::memory_order_relaxed)) {
-            expected = false;
-            std::this_thread::yield();
-        }
-        uint64_t count = max_count_;
-        in_use.store(false, std::memory_order_release);
-        return count;
     }
 };
 

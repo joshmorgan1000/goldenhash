@@ -1,6 +1,9 @@
 #pragma once
 
 #include "common.hpp"
+#include "metrics.hpp"
+#include "collision_store.hpp"
+#include "hash64_analyzer.hpp"
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -14,33 +17,35 @@ namespace goldenhash::tests {
  */
 class TestRunner {
 private:
-    TestData* test_data_;
     std::vector<MapShard*> shards_;
+    TestData* test_data_;
     GoldenHash& hasher_;
     ComparisonResult result_;
     size_t number_of_important_bits_{0};
     std::unique_ptr<std::thread> performance_thread;
-    std::unique_ptr<std::thread> collision_thread;
+    std::unique_ptr<std::thread> metrics_thread;
+    
+    // Metrics collectors
+    std::unique_ptr<AvalancheAnalyzer> avalanche_analyzer_;
+    std::unique_ptr<ChiSquaredCalculator> chi_squared_calc_;
+    std::unique_ptr<CollisionAnalyzer> collision_analyzer_;
+    std::unique_ptr<CollisionStore> collision_store_;
+    std::unique_ptr<Hash64Analyzer> hash64_analyzer_;
+    
+    bool collect_metrics_ = false;
+    bool store_collisions_ = false;
+    bool analyze_64bit_ = false;
     
 public:
     std::atomic<bool> performance_benchmark_complete_{false};
-    std::atomic<bool> collision_test_complete_{false};
-    std::atomic<uint64_t> hashes_{0};
-    std::atomic<uint64_t> unique_{0};
-    std::atomic<uint64_t> collisions_{0};
+    std::atomic<bool> metrics_collection_complete_{false};
 
-    TestRunner(const std::vector<MapShard*>& shards, TestData* test_data, GoldenHash& hasher, std::string algorithm, size_t table_size) : shards_(shards), test_data_(test_data), hasher_(hasher) {
+    TestRunner(std::vector<MapShard*> shards, TestData* test_data, GoldenHash& hasher, std::string algorithm, size_t table_size) : shards_(shards), test_data_(test_data), hasher_(hasher) {
         if (shards_.size() != 64) {
             throw std::runtime_error("These tests require exactly 64 shards");
         }
         result_.algorithm = algorithm;
         result_.table_size = table_size;
-        result_.unique_hashes = 0;
-        result_.total_collisions = 0;
-        result_.collision_ratio = 0.0;
-        result_.max_bucket_load = 0;
-        result_.chi_square = 0.0;
-        result_.avalanche_score = 0.0;
         result_.ns_per_hash = 0.0;
         result_.throughput_mbs = 0.0;
         result_.total_time_ms = 0.0;
@@ -63,12 +68,159 @@ public:
     }
 
     ComparisonResult get_result() const {
-        if (!performance_benchmark_complete_.load() || !collision_test_complete_.load()) {
-            throw std::runtime_error("Tests have not completed yet");
+        if (!performance_benchmark_complete_.load()) {
+            throw std::runtime_error("Performance benchmark has not completed yet");
         }
         return result_;
     }
 
+    /**
+     * @brief Enable metrics collection
+     * @param chi_squared_buckets Number of buckets for chi-squared test
+     * @param collision_db_path Optional path to collision database
+     * @param analyze_64bit Enable 64-bit hash analysis (no modulo)
+     */
+    void enable_metrics(size_t chi_squared_buckets = 256, const std::string& collision_db_path = "", 
+                       bool analyze_64bit = false) {
+        collect_metrics_ = true;
+        
+        // Initialize metrics collectors
+        avalanche_analyzer_ = std::make_unique<AvalancheAnalyzer>(number_of_important_bits_);
+        chi_squared_calc_ = std::make_unique<ChiSquaredCalculator>(chi_squared_buckets);
+        collision_analyzer_ = std::make_unique<CollisionAnalyzer>(result_.table_size);
+        
+        if (!collision_db_path.empty()) {
+            store_collisions_ = true;
+            collision_store_ = std::make_unique<SQLiteCollisionStore>(collision_db_path);
+            collision_store_->initialize();
+        }
+        
+        analyze_64bit_ = analyze_64bit;
+        if (analyze_64bit) {
+            hash64_analyzer_ = std::make_unique<Hash64Analyzer>(collision_db_path, test_data_->size());
+        }
+    }
+    
+    /**
+     * @brief Run metrics collection (separate thread)
+     */
+    void run_metrics_collection() {
+        if (!collect_metrics_ || !test_data_) return;
+        
+        metrics_thread = std::make_unique<std::thread>([this]() {
+            size_t num_tests = test_data_->size();
+            std::vector<CollisionRecord> collision_batch;
+            
+            // Collect metrics on test data
+            for (size_t i = 0; i < num_tests; ++i) {
+                std::string data_str = test_data_->get_test(i);
+                std::vector<uint8_t> data(data_str.begin(), data_str.end());
+                uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), 
+                                           result_.table_size, hasher_);
+                
+                // Chi-squared distribution
+                chi_squared_calc_->add_sample(hash, result_.table_size);
+                
+                // Collision analysis
+                size_t prev_collisions = collision_analyzer_->get_actual_collisions();
+                collision_analyzer_->add_hash(hash, i);
+                
+                // 64-bit hash analysis (if enabled)
+                if (analyze_64bit_) {
+                    // Get the full 64-bit hash without modulo
+                    uint64_t full_hash = compute_hash(result_.algorithm, data.data(), data.size(), 
+                                                    UINT64_MAX, hasher_);  // No modulo
+                    hash64_analyzer_->add_hash(full_hash, data.data(), data.size());
+                }
+                
+                // If a new collision was detected, store it
+                if (store_collisions_ && collision_analyzer_->get_actual_collisions() > prev_collisions) {
+                    // Find the previous occurrence
+                    for (size_t j = 0; j < i; ++j) {
+                        std::string prev_data_str = test_data_->get_test(j);
+                        std::vector<uint8_t> prev_data(prev_data_str.begin(), prev_data_str.end());
+                        uint64_t prev_hash = compute_hash(result_.algorithm, prev_data.data(), 
+                                                        prev_data.size(), result_.table_size, hasher_);
+                        if (prev_hash == hash) {
+                            CollisionRecord record;
+                            record.hash_value = hash;
+                            record.input1 = prev_data;
+                            record.input2 = data;
+                            record.input1_index = j;
+                            record.input2_index = i;
+                            record.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+                            record.algorithm = result_.algorithm;
+                            record.table_size = result_.table_size;
+                            collision_batch.push_back(record);
+                            break;
+                        }
+                    }
+                }
+                
+                // Avalanche effect - test with bit flips
+                if (i % 100 == 0 && data.size() > 0) {  // Sample every 100th entry
+                    for (size_t byte_idx = 0; byte_idx < data.size(); ++byte_idx) {
+                        for (int bit = 0; bit < 8; ++bit) {
+                            // Flip one bit
+                            data[byte_idx] ^= (1 << bit);
+                            uint64_t hash_flipped = compute_hash(result_.algorithm, data.data(), 
+                                                               data.size(), result_.table_size, hasher_);
+                            avalanche_analyzer_->add_sample(hash, hash_flipped);
+                            // Flip back
+                            data[byte_idx] ^= (1 << bit);
+                        }
+                    }
+                }
+            }
+            
+            // Store collision batch
+            if (store_collisions_ && !collision_batch.empty()) {
+                collision_store_->store_collisions_batch(collision_batch);
+            }
+            
+            // Update result with metrics
+            result_.avalanche_score = avalanche_analyzer_->get_avalanche_score();
+            result_.avalanche_bias = avalanche_analyzer_->get_avalanche_bias();
+            result_.chi_squared = chi_squared_calc_->get_chi_squared();
+            result_.uniformity_score = chi_squared_calc_->get_uniformity_score();
+            result_.collision_ratio = collision_analyzer_->get_collision_ratio();
+            result_.actual_collisions = collision_analyzer_->get_actual_collisions();
+            result_.expected_collisions = collision_analyzer_->get_expected_collisions();
+            result_.load_factor = collision_analyzer_->get_load_factor();
+            result_.metrics_collected = true;
+            
+            // Store test run if we have a collision store
+            if (store_collisions_) {
+                TestRunRecord run_record;
+                run_record.run_id = generate_run_id(result_.algorithm);
+                run_record.algorithm = result_.algorithm;
+                run_record.table_size = result_.table_size;
+                run_record.num_hashes = num_tests;
+                run_record.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+                run_record.avalanche_score = result_.avalanche_score;
+                run_record.chi_squared = result_.chi_squared;
+                run_record.collision_ratio = result_.collision_ratio;
+                run_record.actual_collisions = result_.actual_collisions;
+                run_record.expected_collisions = result_.expected_collisions;
+                run_record.throughput_mbs = result_.throughput_mbs;
+                run_record.ns_per_hash = result_.ns_per_hash;
+                
+                collision_store_->store_test_run(run_record);
+                
+                // Also save 64-bit analysis if enabled
+                if (analyze_64bit_) {
+                    std::string metadata = "{\"table_size\": " + std::to_string(result_.table_size) + 
+                                         ", \"analysis\": \"" + hash64_analyzer_->get_statistics() + "\"}";
+                    hash64_analyzer_->save_results(result_.algorithm, metadata);
+                }
+            }
+            
+            metrics_collection_complete_.store(true);
+            metrics_collection_complete_.notify_all();
+        });
+        metrics_thread->detach();
+    }
+    
     /**
      * @brief Runs the performance benchmark (single-threaded)
      */
@@ -107,63 +259,6 @@ public:
         performance_thread->detach();
     }
     
-    /**
-     * @brief Runs the assigned tests and collects metrics in a separate thread
-     */
-    void run_collision_test() {
-        if (!test_data_) {
-            throw std::runtime_error("Test data is not initialized");
-        }
-        collision_thread = std::make_unique<std::thread>([this]() {
-            size_t total_items = test_data_->size();
-            size_t max_bucket_load = 0;
-            double avalanche_score = 0.0;
-
-            for (size_t i = 0; i < total_items; ++i) {
-                std::string data_str = test_data_->get_test(i);
-                std::vector<uint8_t> data(data_str.begin(), data_str.end());
-                uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
-                // Note: hash is already modulo'd by compute_hash for non-goldenhash algorithms
-                // Use upper bits for sharding to avoid correlation with table index
-                size_t shard_index = (hash >> 14) & 0x3F;  // We require exactly 64 shards
-                shards_[shard_index]->process_hash(hash);
-                
-                // Update avalanche score
-                if ((i & 0x3FF) == 0 && !data.empty()) {
-                    std::vector<uint8_t> modified_data = data;
-                    // Modify one random bit in the input data
-                    size_t byte_index = rand() % modified_data.size();
-                    size_t bit_offset = rand() % 8;
-                    modified_data[byte_index] ^= (1 << bit_offset);
-                    
-                    uint64_t original_hash = hash;
-                    uint64_t modified_hash = compute_hash(result_.algorithm, modified_data.data(), modified_data.size(), result_.table_size, hasher_);
-                    
-                    // Only check the bits that matter for this table size
-                    uint64_t mask = (1ULL << number_of_important_bits_) - 1;
-                    uint64_t diff = (original_hash ^ modified_hash) & mask;
-                    int bits_changed = __builtin_popcountll(diff);
-                    avalanche_score += bits_changed;
-                }
-                // Note: We don't track collisions/unique at the runner level
-                // because runners share shards, so the shard-level tracking is authoritative
-                hashes_.fetch_add(1, std::memory_order_relaxed);
-            }
-            
-            // Note: total_collisions and unique_hashes are set from shard data in main.cpp
-            result_.max_bucket_load = max_bucket_load;
-            // Calculate average avalanche score (bits changed / important bits)
-            size_t num_avalanche_tests = (total_items + 0x3FF) / 0x400;  // Number of avalanche tests performed
-            if (num_avalanche_tests > 0) {
-                result_.avalanche_score = (avalanche_score / num_avalanche_tests) / number_of_important_bits_;
-            } else {
-                result_.avalanche_score = 0.0;
-            }
-            collision_test_complete_.store(true);
-            collision_test_complete_.notify_all();
-        });
-        collision_thread->detach();
-    }
 };
 
 } // namespace goldenhash::tests

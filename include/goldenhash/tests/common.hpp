@@ -25,17 +25,22 @@ struct ComparisonResult {
     size_t table_size;
     double throughput_mbs;
     double ns_per_hash;
-    uint64_t unique_hashes;
-    uint64_t total_collisions;
-    double collision_ratio;
-    uint64_t max_bucket_load;
-    double chi_square;
-    double avalanche_score;
     double total_time_ms;
+    // GoldenHash specific fields
     uint64_t prime_high;
     uint64_t prime_low;
     uint64_t working_modulus;
     std::vector<uint64_t> factors;
+    // Quality metrics
+    double avalanche_score = 0.0;
+    double avalanche_bias = 0.0;
+    double chi_squared = 0.0;
+    double uniformity_score = 0.0;
+    double collision_ratio = 0.0;
+    size_t actual_collisions = 0;
+    double expected_collisions = 0.0;
+    double load_factor = 0.0;
+    bool metrics_collected = false;
 };
 
 /**
@@ -58,7 +63,7 @@ public:
         
         for (int t = 0; t < num_threads; ++t) {
             if (use_sqlite) {
-                thread_test_data.push_back(std::make_unique<SQLiteTestData>(":memory:"));
+                thread_test_data.push_back(std::make_unique<SQLiteTestData>("data/test_data_" + std::to_string(t) + ".db"));
             } else {
                 thread_test_data.push_back(std::make_unique<InMemoryTestData>());
             }

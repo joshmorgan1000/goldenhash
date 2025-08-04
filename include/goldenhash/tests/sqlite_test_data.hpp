@@ -25,14 +25,18 @@ public:
         if (sqlite3_open(filename.c_str(), &db) != SQLITE_OK) {
             throw std::runtime_error("Failed to open SQLite test data: " + std::string(sqlite3_errmsg(db)));
         }
-        
+        // Database special instructions for fast performance
+        sqlite3_exec(db, "PRAGMA synchronous = OFF", nullptr, nullptr, nullptr);
+        sqlite3_exec(db, "PRAGMA journal_mode = MEMORY", nullptr, nullptr, nullptr);
+        sqlite3_exec(db, "BEGIN TRANSACTION", nullptr, nullptr, nullptr);
         // Create table if it doesn't exist
         const char* create_table = "CREATE TABLE IF NOT EXISTS test_data (id INTEGER PRIMARY KEY, test TEXT)";
         if (sqlite3_exec(db, create_table, nullptr, nullptr, nullptr) != SQLITE_OK) {
             sqlite3_close(db);
             throw std::runtime_error("Failed to create table in SQLite test data: " + std::string(sqlite3_errmsg(db)));
         }
-        
+        // Commit the transaction to ensure the table is created
+        sqlite3_exec(db, "COMMIT; BEGIN TRANSACTION", nullptr, nullptr, nullptr);
         // Prepare insert statement
         sqlite3_prepare_v2(db, "INSERT INTO test_data (test) VALUES (?)", -1, &insert_stmt, nullptr);
         // Prepare select statement

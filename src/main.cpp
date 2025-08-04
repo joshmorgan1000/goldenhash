@@ -37,6 +37,7 @@
 #include <cmath>
 #include <getopt.h>
 #include <filesystem>
+#include <algorithm>
 
 using namespace goldenhash;
 using namespace goldenhash::tests;
@@ -46,29 +47,38 @@ void display_comparison_table(const std::vector<ComparisonResult>& results) {
     
     std::cout << "\n=== HASH ALGORITHM COMPARISON ===\n\n";
     
-    // Header
+    // Check if any result has metrics
+    bool has_metrics = std::any_of(results.begin(), results.end(), 
+                                  [](const auto& r) { return r.metrics_collected; });
+    
+    // Performance Header
     std::cout << std::left 
               << std::setw(10) << "Algorithm"
               << " | " << std::right
               << std::setw(11) << "Throughput"
               << " | " << std::setw(8) << "ns/hash"
-              << " | " << std::setw(7) << "Colls"
-              << " | " << std::setw(15) << "Collision Ratio"
-              << " | " << std::setw(4) << "Max"
-              << " | " << std::setw(15) << "Chi-Square"
-              << " | " << std::setw(15) << "Avalanche"
-              << " | " << std::setw(6) << "Ms"
-              << "\n";
+              << " | " << std::setw(8) << "Time(ms)";
+    
+    if (has_metrics) {
+        std::cout << " | " << std::setw(12) << "Avalanche"
+                  << " | " << std::setw(12) << "Chi-Squared"
+                  << " | " << std::setw(12) << "Coll.Ratio"
+                  << " | " << std::setw(10) << "Collisions";
+    }
+    std::cout << "\n";
     
     std::cout << std::string(10, '-') << "-+-" 
               << std::string(11, '-') << "-+-"
               << std::string(8, '-') << "-+-"
-              << std::string(7, '-') << "-+-"
-              << std::string(15, '-') << "-+-"
-              << std::string(4, '-') << "-+-"
-              << std::string(15, '-') << "-+-"
-              << std::string(15, '-') << "-+-"
-              << std::string(6, '-') << "\n";
+              << std::string(8, '-');
+    
+    if (has_metrics) {
+        std::cout << "-+-" << std::string(12, '-')
+                  << "-+-" << std::string(12, '-')
+                  << "-+-" << std::string(12, '-')
+                  << "-+-" << std::string(10, '-');
+    }
+    std::cout << "\n";
     
     // Results
     for (const auto& r : results) {
@@ -79,14 +89,31 @@ void display_comparison_table(const std::vector<ComparisonResult>& results) {
                   << " | " << std::right
                   << std::setw(11) << throughput_str.str()
                   << " | " << std::setw(8) << std::fixed << std::setprecision(1) << r.ns_per_hash
-                  << " | " << std::setw(7) << std::noshowpoint << std::setprecision(0) << r.total_collisions
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(9) 
-                  << r.collision_ratio
-                  << " | " << std::setw(4) << std::noshowpoint << std::setprecision(0) << r.max_bucket_load
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(9) << r.chi_square
-                  << " | " << std::setw(15) << std::fixed << std::setprecision(9) << r.avalanche_score
-                  << " | " << std::setw(6) << std::noshowpoint << std::setprecision(0) << r.total_time_ms
-                  << "\n";
+                  << " | " << std::setw(8) << std::noshowpoint << std::setprecision(0) << r.total_time_ms;
+        
+        if (has_metrics) {
+            if (r.metrics_collected) {
+                std::cout << " | " << std::setw(12) << std::fixed << std::setprecision(9) << r.avalanche_score
+                          << " | " << std::setw(12) << std::fixed << std::setprecision(9) << r.chi_squared
+                          << " | " << std::setw(12) << std::fixed << std::setprecision(9) << r.collision_ratio
+                          << " | " << std::setw(10) << r.actual_collisions;
+            } else {
+                std::cout << " | " << std::setw(12) << "N/A"
+                          << " | " << std::setw(12) << "N/A"
+                          << " | " << std::setw(12) << "N/A"
+                          << " | " << std::setw(10) << "N/A";
+            }
+        }
+        
+        std::cout << "\n";
+    }
+    
+    if (has_metrics) {
+        std::cout << "\nMetrics Legend:\n";
+        std::cout << "  Avalanche: Output bit change rate (0.5 is ideal)\n";
+        std::cout << "  Chi-Sq: Distribution uniformity (1.0 is ideal)\n";
+        std::cout << "  Coll.Ratio: Actual/Expected collisions (1.0 matches birthday paradox)\n";
+        std::cout << "  Collisions: Actual number of hash collisions detected\n";
     }
     
     std::cout << "\n";
@@ -106,20 +133,10 @@ void output_json_results(const ComparisonResult& result, uint64_t table_size,
         test_hashes.push_back({str, hash});
     }
     
-    // Calculate expected collisions
-    double expected_collisions = num_iterations - table_size * (1.0 - std::pow(1.0 - 1.0/table_size, num_iterations));
-    
     // JSON output
     std::cout << "{\n";
     std::cout << "  \"table_size\": " << table_size << ",\n";
-    std::cout << "  \"unique_hashes\": " << result.unique_hashes << ",\n";
-    std::cout << "  \"distribution_uniformity\": " << std::sqrt(result.chi_square / table_size) << ",\n";
-    std::cout << "  \"total_collisions\": " << result.total_collisions << ",\n";
-    std::cout << "  \"expected_collisions\": " << expected_collisions << ",\n";
-    std::cout << "  \"collision_ratio\": " << result.collision_ratio << ",\n";
-    std::cout << "  \"max_bucket_load\": " << result.max_bucket_load << ",\n";
-    std::cout << "  \"avalanche_score\": " << result.avalanche_score << ",\n";
-    std::cout << "  \"chi_square\": " << result.chi_square << ",\n";
+    std::cout << "  \"num_iterations\": " << num_iterations << ",\n";
     std::cout << "  \"prime_high\": " << hasher.get_prime_high() << ",\n";
     std::cout << "  \"prime_low\": " << hasher.get_prime_low() << ",\n";
     std::cout << "  \"working_modulus\": " << hasher.get_working_mod() << ",\n";
@@ -136,7 +153,8 @@ void output_json_results(const ComparisonResult& result, uint64_t table_size,
         if (i < hasher.get_factors().size() - 1) std::cout << ", ";
     }
     std::cout << "\",\n";
-    std::cout << "  \"performance_ns_per_hash\": " << result.ns_per_hash << "\n";
+    std::cout << "  \"performance_ns_per_hash\": " << result.ns_per_hash << ",\n";
+    std::cout << "  \"throughput_mbs\": " << result.throughput_mbs << "\n";
     std::cout << "}\n";
 }
 
@@ -148,8 +166,12 @@ void print_usage(const char* program) {
               << "  --compare          Compare all hash algorithms\n"
               << "  --algorithm <name> Test specific algorithm (goldenhash, xxhash64, sha256, aes-cmac)\n"
               << "  --json             Output results in JSON format\n"
+              << "  --metrics          Enable detailed metrics collection (avalanche, chi-squared, collisions)\n"
+              << "  --collision-db <path> Store collisions in SQLite database\n"
+              << "  --hash-bits <n>    Test with n-bit hashes (default: based on table size)\n"
               << "  --help             Show this help message\n";
 }
+
 
 int main(int argc, char* argv[]) {
     // Set a fixed random seed for reproducibility
@@ -167,7 +189,10 @@ int main(int argc, char* argv[]) {
     bool force_sqlite = false;
     bool compare_mode = false;
     bool json_output = false;
+    bool collect_metrics = false;
     std::string specific_algorithm;
+    std::string collision_db_path;
+    int hash_bits = 0;  // 0 means auto-detect based on table size
     
     // Parse options
     static struct option long_options[] = {
@@ -176,13 +201,16 @@ int main(int argc, char* argv[]) {
         {"compare", no_argument, 0, 'c'},
         {"algorithm", required_argument, 0, 'a'},
         {"json", no_argument, 0, 'j'},
+        {"metrics", no_argument, 0, 'm'},
+        {"collision-db", required_argument, 0, 'd'},
+        {"hash-bits", required_argument, 0, 'b'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
     
     int option_index = 0;
     int c;
-    while ((c = getopt_long(argc, argv, "t:sca:jh", long_options, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "t:sca:jmd:b:h", long_options, &option_index)) != -1) {
         switch (c) {
             case 't':
                 num_threads = std::stoi(optarg);
@@ -198,6 +226,20 @@ int main(int argc, char* argv[]) {
                 break;
             case 'j':
                 json_output = true;
+                break;
+            case 'm':
+                collect_metrics = true;
+                break;
+            case 'd':
+                collision_db_path = optarg;
+                collect_metrics = true;  // Enabling collision db implies metrics
+                break;
+            case 'b':
+                hash_bits = std::stoi(optarg);
+                if (hash_bits <= 0 || hash_bits > 64) {
+                    std::cerr << "Error: hash-bits must be between 1 and 64\n";
+                    return 1;
+                }
                 break;
             case 'h':
                 print_usage(argv[0]);
@@ -220,6 +262,16 @@ int main(int argc, char* argv[]) {
                           << (available_memory / (1024*1024)) << " MB)\n";
             }
             use_sqlite = true;
+            // Make the data directory if it doesn't exist
+            std::filesystem::path p("data/lock.db");
+            p = p.parent_path();
+            if (!p.empty()) {
+                std::error_code ec;
+                std::filesystem::create_directories(p, ec);
+                if (ec) {
+                    throw std::runtime_error("Failed to create directories: " + ec.message());
+                }
+            }
         }
     }
     
@@ -233,21 +285,6 @@ int main(int argc, char* argv[]) {
     // Generate the test data, split into the number of threads so each thread has its own data it is responsible for
     std::vector<std::unique_ptr<TestData>> test_data = TestDataGenerator::generate(num_iterations, num_threads, use_sqlite, json_output);
 
-    // Calculate the expected number of collisions based on the birthday paradox
-    // This gives us the expected number of items that are not unique
-    double expected_collisions;
-    double ratio = static_cast<double>(num_iterations) / static_cast<double>(table_size);
-    if (ratio < 0.1) {
-        // For small n/m ratios, use the approximation to avoid precision loss
-        expected_collisions = (static_cast<double>(num_iterations) * (num_iterations - 1)) / (2.0 * table_size);
-    } else {
-        // For larger ratios, use the full formula
-        expected_collisions = num_iterations - table_size * (1.0 - std::pow(1.0 - 1.0/table_size, num_iterations));
-    }
-    
-    if (!json_output) {
-        std::cout << "Expected items that are not unique: " << expected_collisions << "\n";
-    }
     
     // Lambda to run test for a specific algorithm
     auto run_algorithm_test = [&](const std::string& algo) -> ComparisonResult {
@@ -261,7 +298,7 @@ int main(int argc, char* argv[]) {
                 // Create data directory if it doesn't exist
                 std::filesystem::create_directories("data");
                 std::string filename = "data/" + algo + "_shard_" + std::to_string(i) + ".db";
-                shards.push_back(new SQLiteShard(filename, i, 0, UINT64_MAX));
+                shards.push_back(new SQLiteShard(filename));
             } else {
                 shards.push_back(new HashMapShard());
             }
@@ -272,14 +309,37 @@ int main(int argc, char* argv[]) {
         GoldenHash hasher(table_size);
         for (int i = 0; i < num_threads; ++i) {
             runners.emplace_back(std::make_unique<TestRunner>(shards, test_data[i].get(), hasher, algo, table_size));
+            
+            // Enable metrics collection if requested
+            if (collect_metrics && i == 0) {  // Only collect metrics on first thread
+                std::string db_path = collision_db_path;
+                if (!db_path.empty()) {
+                    // Create directory if needed
+                    std::filesystem::path p(db_path);
+                    if (p.has_parent_path()) {
+                        std::filesystem::create_directories(p.parent_path());
+                    }
+                }
+                bool analyze_64bit = (hash_bits == 64);
+                runners[i]->enable_metrics(256, db_path, analyze_64bit);
+            }
         }
 
         // Run performance tests first
         if (!json_output) {
-            std::cout << "Running performance benchmarks...\n";
+            std::cout << "Running performance benchmarks for " << algo << " (" << num_iterations << " iterations across " 
+                      << num_threads << " threads)...\n";
         }
         for (auto& runner : runners) {
             runner->run_performance_benchmark();
+        }
+        
+        // Run metrics collection if enabled
+        if (collect_metrics) {
+            if (!json_output) {
+                std::cout << "Collecting quality metrics for " << algo << "...\n";
+            }
+            runners[0]->run_metrics_collection();
         }
 
         // Wait for all performance benchmarks to complete
@@ -287,77 +347,9 @@ int main(int argc, char* argv[]) {
             runner->performance_benchmark_complete_.wait(false);
         }
         
-        if (!json_output) {
-            std::cout << "Running collision tests...\n";
-        }
-        // Run collision tests
-        for (auto& runner : runners) {
-            runner->run_collision_test();
-        }
-
-        if (json_output) {
-            // Wait for all collision tests to complete
-            for (auto& runner : runners) {
-                runner->collision_test_complete_.wait(false);
-            }
-        } else {
-
-            // Periodically check the progress of collision tests and print status
-            auto start_time = std::chrono::high_resolution_clock::now();
-            size_t completed = 0;
-            const int progress_bar_width = 50;
-            
-            while (completed < num_iterations) {
-                completed = 0;
-                size_t collisions = 0;
-                for (const auto& runner : runners) {
-                    completed += runner->hashes_.load();
-                    collisions += runner->collisions_.load();
-                }
-                
-                // Non-linear time estimation based on collision probability
-                auto elapsed = std::chrono::high_resolution_clock::now() - start_time;
-                double elapsed_sec = std::chrono::duration<double>(elapsed).count();
-                double progress = static_cast<double>(completed) / num_iterations;
-                
-                // Estimate time remaining (collision detection gets slower as more hashes are stored)
-                double collision_probability = 1.0 - std::exp(-static_cast<double>(completed) / table_size);
-                double speed_factor = 1.0 + collision_probability * 0.5; // Slowdown factor
-                double estimated_total = elapsed_sec / progress * speed_factor;
-                double estimated_remaining = estimated_total - elapsed_sec;
-                
-                // Calculate the current birthday paradox based on the number of completed hashes
-                double current_expected_collisions;
-                double current_ratio = static_cast<double>(completed) / static_cast<double>(table_size);
-                if (current_ratio < 0.1) {
-                    current_expected_collisions = (static_cast<double>(completed) * (completed - 1)) / (2.0 * table_size);
-                } else {
-                    current_expected_collisions = completed - table_size * (1.0 - std::pow(1.0 - 1.0/table_size, completed));
-                }
-                // Calculate the ratio based on the number of collisions and the birthday paradox
-                double current_collision_ratio = current_expected_collisions > 0 ? collisions / current_expected_collisions : 0;
-                
-                // Progress bar
-                std::cout << "\r[";
-                int filled = static_cast<int>(progress * progress_bar_width);
-                for (int i = 0; i < progress_bar_width; ++i) {
-                    if (i < filled) std::cout << "=";
-                    else if (i == filled) std::cout << ">";
-                    else std::cout << " ";
-                }
-                std::cout << "] " << std::fixed << std::setprecision(1) << (progress * 100) << "% "
-                          << "ETA: " << static_cast<int>(estimated_remaining) << "s "
-                          << "Ratio: " << std::setprecision(6) << (current_collision_ratio * 100) << "%" << std::flush;
-                
-                if (completed >= num_iterations) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(250));
-            }
-            std::cout << std::endl;
-            
-            // Wait for all collision tests to complete
-            for (auto& runner : runners) {
-                runner->collision_test_complete_.wait(false);
-            }
+        // Wait for metrics collection if enabled
+        if (collect_metrics) {
+            runners[0]->metrics_collection_complete_.wait(false);
         }
         
         // Aggregate results from all runners
@@ -367,16 +359,11 @@ int main(int argc, char* argv[]) {
         result.ns_per_hash = 0;
         result.throughput_mbs = 0;
         result.total_time_ms = 0;
-        result.unique_hashes = 0;
-        result.total_collisions = 0;
-        result.max_bucket_load = 0;
-        result.chi_square = 0;
-        result.avalanche_score = 0;
-        result.collision_ratio = 0;
         result.prime_high = 0;
         result.prime_low = 0;
         result.working_modulus = 0;
         result.factors.clear();
+        result.metrics_collected = false;
         
         // Collect performance metrics (average across threads)
         for (const auto& runner : runners) {
@@ -384,82 +371,30 @@ int main(int argc, char* argv[]) {
             result.ns_per_hash += runner_result.ns_per_hash;
             result.throughput_mbs += runner_result.throughput_mbs;
             result.total_time_ms = std::max(result.total_time_ms, runner_result.total_time_ms);
-            result.avalanche_score += runner_result.avalanche_score;
         }
+
         result.ns_per_hash /= runners.size();
-        result.avalanche_score /= runners.size();
         
-        // Collect metrics from shards (they track the actual unique counts)
-        uint64_t total_unique = 0;
-        uint64_t total_shard_collisions = 0;
-        for (int i = 0; i < 64; ++i) {
-            uint64_t shard_unique = shards[i]->get_unique();
-            total_unique += shard_unique;
-            total_shard_collisions += shards[i]->get_collisions();
-        }
-        
-        // Debug output for large table sizes
-        if (table_size > 1000000000 && !json_output) {
-            std::cout << "\nDEBUG: Algorithm " << algo << " - Total unique across shards: " << total_unique 
-                      << ", Total shard collisions: " << total_shard_collisions << "\n";
-        }
-        
-        
-        // Collect shard metrics for max load and distribution
-        uint64_t max_bucket_load = 0;
-        std::vector<uint64_t> shard_hash_counts(64, 0);
-        
-        for (size_t i = 0; i < 64; ++i) {
-            uint64_t shard_max = shards[i]->get_max_count();
-            if (shard_max > max_bucket_load) {
-                max_bucket_load = shard_max;
-            }
-            // Total hashes processed by this shard
-            shard_hash_counts[i] = shards[i]->get_unique() + shards[i]->get_collisions();
-        }
-        
-        if (!json_output && algo == "goldenhash" && max_bucket_load > 100) {
-            std::cout << "WARNING: Max bucket load is " << max_bucket_load 
-                      << " which seems too high for " << num_iterations << " items\n";
-        }
-        
-        
-        result.unique_hashes = total_unique;
-        result.max_bucket_load = max_bucket_load;
-        
-        // The correct number of collisions is simply: items processed - unique items
-        // Don't use the shard collision counters as they count collision events, not actual collisions
-        int64_t actual_collisions = static_cast<int64_t>(num_iterations) - static_cast<int64_t>(total_unique);
-        if (actual_collisions < 0) {
-            actual_collisions = 0;  // Shouldn't happen, but protect against underflow
-        }
-        result.total_collisions = actual_collisions;
-        result.collision_ratio = expected_collisions > 0 ? static_cast<double>(actual_collisions) / expected_collisions : 0.0;
-        
-        // Debug output for collision counting
-        if (!json_output && table_size == 1048576) {
-            std::cout << "\nDEBUG " << algo << ": num_iterations=" << num_iterations 
-                      << ", total_unique=" << total_unique 
-                      << ", actual_collisions=" << actual_collisions
-                      << ", expected_collisions=" << expected_collisions
-                      << ", collision_ratio=" << result.collision_ratio << "\n";
-        }
-        
-        // Calculate chi-square for distribution uniformity across shards
-        double expected_per_shard = static_cast<double>(num_iterations) / 64.0;
-        double chi_square = 0.0;
-        for (size_t i = 0; i < 64; ++i) {
-            double diff = shard_hash_counts[i] - expected_per_shard;
-            chi_square += (diff * diff) / expected_per_shard;
-        }
-        result.chi_square = chi_square / 63.0; // Chi-square with 63 degrees of freedom, normalized
-        
-        // Get GoldenHash specific metrics
+        // Get GoldenHash specific metrics and quality metrics
         if (algo == "goldenhash") {
             result.prime_high = runners[0]->get_result().prime_high;
             result.prime_low = runners[0]->get_result().prime_low;
             result.working_modulus = runners[0]->get_result().working_modulus;
             result.factors = runners[0]->get_result().factors;
+        }
+        
+        // Get quality metrics if collected
+        if (collect_metrics && runners[0]->get_result().metrics_collected) {
+            auto metrics_result = runners[0]->get_result();
+            result.avalanche_score = metrics_result.avalanche_score;
+            result.avalanche_bias = metrics_result.avalanche_bias;
+            result.chi_squared = metrics_result.chi_squared;
+            result.uniformity_score = metrics_result.uniformity_score;
+            result.collision_ratio = metrics_result.collision_ratio;
+            result.actual_collisions = metrics_result.actual_collisions;
+            result.expected_collisions = metrics_result.expected_collisions;
+            result.load_factor = metrics_result.load_factor;
+            result.metrics_collected = true;
         }
         
         // Clean up shards
@@ -475,7 +410,8 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> algorithms = {"goldenhash", "xxhash64", "sha256", "aes-cmac"};
         std::vector<ComparisonResult> results;
         for (const auto& algo : algorithms) {
-            results.push_back(run_algorithm_test(algo));
+            ComparisonResult algo_result = run_algorithm_test(algo);
+            results.push_back(algo_result);
         }
         display_comparison_table(results);
     } else if (!specific_algorithm.empty()) {

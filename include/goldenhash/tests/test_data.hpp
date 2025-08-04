@@ -7,6 +7,7 @@
 #include <array>
 #include <atomic>
 #include <thread>
+#include <random>
 
 namespace goldenhash::tests {
 
@@ -32,6 +33,10 @@ public:
  * @param progress_counter Optional atomic counter to track progress
  */
 inline static void create_test_data(TestData* data, size_t start_index, size_t end_index, std::atomic<size_t>* progress_counter = nullptr) {
+    // Use thread-local random generator to avoid race conditions
+    // Use random_device for better randomness instead of predictable seed
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 rng(rd());
     const std::array<std::string, 8> test_strings = {
         "",
         "Hello, World!",
@@ -51,9 +56,9 @@ inline static void create_test_data(TestData* data, size_t start_index, size_t e
     // Adjust the number of tests to be a multiple of 20, we will do the remainder separately
     size_t remainder = number_of_tests % 20;
 
-    size_t current_index = start_index;
     size_t progress_batch = 0;
-    while (current_index < end_index) {
+    for (size_t i = 0; i < tests_per_iteration; ++i) {
+        size_t current_index = start_index + i * 20;
         // Add test strings (up to 8)
         for (const auto& str : test_strings) {
             if (current_index >= end_index) break;
@@ -68,10 +73,12 @@ inline static void create_test_data(TestData* data, size_t start_index, size_t e
         // Add random alphanumeric strings (up to 8)
         for (size_t j = 0; j < 8 && current_index < end_index; ++j) {
             std::string random_str;
-            uint8_t len = 8 + (rand() % 24); // Random length between 8 and 32
+            std::uniform_int_distribution<int> len_dist(8, 31);
+            uint8_t len = len_dist(rng); // Random length between 8 and 31
             random_str.resize(len);
+            std::uniform_int_distribution<int> char_dist(0, 31);
             for (size_t k = 0; k < len; ++k) {
-                random_str[k] = 'a' + (rand() & 0b00011111); // Simple lowercase letters and some numbers
+                random_str[k] = 'a' + char_dist(rng); // Simple lowercase letters and some characters
             }
             if (current_index > 0) {
                 data->add_test(random_str + " " + std::to_string(current_index));
@@ -82,10 +89,12 @@ inline static void create_test_data(TestData* data, size_t start_index, size_t e
         }
         
         // Add random bytes (up to 4)
+        std::uniform_int_distribution<int> byte_len_dist(8, 23);
+        std::uniform_int_distribution<int> byte_dist(0, 255);
         for (size_t j = 0; j < 4 && current_index < end_index; ++j) {
-            std::vector<uint8_t> random_bytes(8 + (rand() & 0b00001111)); // Random length between 8 and 24
+            std::vector<uint8_t> random_bytes(byte_len_dist(rng)); // Random length between 8 and 23
             for (auto& byte : random_bytes) {
-                byte = rand() & 0xFF; // Random byte
+                byte = byte_dist(rng); // Random byte
             }
             std::string byte_str(random_bytes.begin(), random_bytes.end());
             if (current_index > 0) {
@@ -103,7 +112,14 @@ inline static void create_test_data(TestData* data, size_t start_index, size_t e
             }
         }
     }
-    
+    // Add the remainder
+    for (size_t i = 0; i < remainder; ++i) {
+        size_t current_index = start_index + tests_per_iteration * 20 + i;
+        if (current_index >= end_index) break;
+        // Add a random string
+        std::string random_str = "RANDOM_" + std::to_string(current_index);
+        data->add_test(random_str);
+    }
     // Update any remaining progress
     if (progress_counter && progress_batch > 0) {
         progress_counter->fetch_add(progress_batch, std::memory_order_relaxed);
