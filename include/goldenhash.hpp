@@ -25,36 +25,21 @@
  */
 #include <chrono>
 #include <map>
-#include <set>
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
-#include <numeric>
 #include <random>
 #include <iomanip>
 #include <sstream>
-#include <bitset>
 #include <vector>
 #include <string>
-#include <span>
 #include <iostream>
 #include <unordered_map>
 
 namespace goldenhash {
 
 static const long double GOLDEN_RATIO = (1 + std::sqrt(5)) / 2;
-static const long double GOLDEN_FRACTIONAL_PART = (std::sqrt(5) - 1) / 2;
 
-#ifdef __has_include
-#  if __has_include(<json/json.h>)
-#    include <json/json.h>
-#    define HAS_JSONCPP 1
-#  else
-#    define HAS_JSONCPP 0
-#  endif
-#else
-#  define HAS_JSONCPP 0
-#endif
 
 /**
  * @struct MetricResult
@@ -467,7 +452,6 @@ private:
     uint64_t prime_mixed;    // Mixed prime for compression
     uint64_t initial_hash;
     std::vector<uint64_t> factors;
-    std::vector<uint64_t> secret;  // Modular secret for mixing
     uint64_t seed_;          // Seed value
     
     // Compressive S-boxes for irreversibility

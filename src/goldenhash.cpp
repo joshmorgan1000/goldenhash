@@ -64,17 +64,7 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
         // Fill up sbox j
         for (size_t i = 0; i < SBOX_SIZE; i++) {
             // Mix using AND/OR operations with primes
-            /*
-            // Version 1: works *okay*.
             h = (h * prime_product) ^ prime_mod;
-            h = (h * prime_low) ^ (prime_high * (i + 1));
-            h = (h & ~prime_mixed) | (((h ^ prime_product) >> 13) ^ working_mod);
-            h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
-            sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
-            */
-            // Version 2: hopefully better?
-            h = (h * prime_product) ^ prime_mod;
-            // h = ((h * prime_low) ^ (prime_high) * (i * prime_mixed)) & ~(working_mod - i);
             sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
         }
     }
