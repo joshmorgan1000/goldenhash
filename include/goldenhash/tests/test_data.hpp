@@ -29,8 +29,9 @@ public:
 
 /**
  * @brief Creates N number of tests in the test data
+ * @param progress_counter Optional atomic counter to track progress
  */
-inline static void create_test_data(TestData* data, size_t start_index, size_t end_index) {
+inline static void create_test_data(TestData* data, size_t start_index, size_t end_index, std::atomic<size_t>* progress_counter = nullptr) {
     const std::array<std::string, 8> test_strings = {
         "",
         "Hello, World!",
@@ -50,56 +51,62 @@ inline static void create_test_data(TestData* data, size_t start_index, size_t e
     // Adjust the number of tests to be a multiple of 20, we will do the remainder separately
     size_t remainder = number_of_tests % 20;
 
-    for (size_t i = start_index; i < end_index; i += 20) {
+    size_t current_index = start_index;
+    size_t progress_batch = 0;
+    while (current_index < end_index) {
+        // Add test strings (up to 8)
         for (const auto& str : test_strings) {
-            if (i > 0) {
-                data->add_test(str + " " + std::to_string(i));
+            if (current_index >= end_index) break;
+            if (current_index > 0) {
+                data->add_test(str + " " + std::to_string(current_index));
             } else {
                 data->add_test(str);
             }
+            current_index++;
         }
-        // For the next 8, add some random alphanumeric strings
-        for (size_t j = 0; j < 8; ++j) {
+        
+        // Add random alphanumeric strings (up to 8)
+        for (size_t j = 0; j < 8 && current_index < end_index; ++j) {
             std::string random_str;
             uint8_t len = 8 + (rand() % 24); // Random length between 8 and 32
             random_str.resize(len);
             for (size_t k = 0; k < len; ++k) {
                 random_str[k] = 'a' + (rand() & 0b00011111); // Simple lowercase letters and some numbers
             }
-            if (i > 0) {
-                data->add_test(random_str + " " + std::to_string(i));
+            if (current_index > 0) {
+                data->add_test(random_str + " " + std::to_string(current_index));
             } else {
                 data->add_test(random_str);
             }
+            current_index++;
         }
-        // For the next 4, add random bytes to the test data
-        for (size_t j = 0; j < 4; ++j) {
+        
+        // Add random bytes (up to 4)
+        for (size_t j = 0; j < 4 && current_index < end_index; ++j) {
             std::vector<uint8_t> random_bytes(8 + (rand() & 0b00001111)); // Random length between 8 and 24
             for (auto& byte : random_bytes) {
                 byte = rand() & 0xFF; // Random byte
             }
             std::string byte_str(random_bytes.begin(), random_bytes.end());
-            if (i > 0) {
-                data->add_test(byte_str + " " + std::to_string(i));
+            if (current_index > 0) {
+                data->add_test(byte_str + " " + std::to_string(current_index));
             } else {
                 data->add_test(byte_str);
             }
+            current_index++;
+            progress_batch++;
+            
+            // Update progress every 1024 items
+            if (progress_counter && progress_batch >= 1024) {
+                progress_counter->fetch_add(progress_batch, std::memory_order_relaxed);
+                progress_batch = 0;
+            }
         }
     }
-    // For the remaining modulo 20 tests, add some specific strings
-    if (remainder == 0) return; // No remainder, nothing to add
-    for (size_t i = (end_index - remainder); i < end_index; ++i) {
-        if (i < test_strings.size()) {
-            data->add_test(test_strings[i]);
-        } else {
-            std::string random_str;
-            uint8_t len = 8 + (rand() & 0b00001111); // Random length between 8 and 24
-            random_str.resize(len);
-            for (size_t j = 0; j < len; ++j) {
-                random_str[j] = 'a' + (rand() & 0b00011111); // Simple lowercase letters and some numbers
-            }
-            data->add_test(random_str);
-        }
+    
+    // Update any remaining progress
+    if (progress_counter && progress_batch > 0) {
+        progress_counter->fetch_add(progress_batch, std::memory_order_relaxed);
     }
 }
 

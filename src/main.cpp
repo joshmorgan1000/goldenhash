@@ -385,13 +385,15 @@ int main(int argc, char* argv[]) {
         result.ns_per_hash /= runners.size();
         result.avalanche_score /= runners.size();
         
-        // Collect metrics from runners (they already track unique/collisions)
+        // Collect metrics from shards (they track the actual unique counts)
         uint64_t total_unique = 0;
-        uint64_t total_collisions = 0;
-        for (const auto& runner : runners) {
-            total_unique += runner->unique_.load();
-            total_collisions += runner->collisions_.load();
+        uint64_t total_shard_collisions = 0;
+        for (int i = 0; i < 64; ++i) {
+            uint64_t shard_unique = shards[i]->get_unique();
+            total_unique += shard_unique;
+            total_shard_collisions += shards[i]->get_collisions();
         }
+        
         
         // Collect shard metrics for max load and distribution
         uint64_t max_bucket_load = 0;

@@ -9,6 +9,11 @@
 #include "test_data.hpp"
 #include <string>
 #include <cstdint>
+#include <iostream>
+#include <iomanip>
+#include <thread>
+#include <chrono>
+#include <atomic>
 
 namespace goldenhash::tests {
 
@@ -66,17 +71,60 @@ public:
         
         std::atomic<size_t> threads_completed(0);
         
+        // For progress tracking
+        std::atomic<size_t> total_items_generated(0);
+        auto gen_start_time = std::chrono::high_resolution_clock::now();
+        
         for (int t = 0; t < num_threads; ++t) {
             size_t start_idx = t * items_per_thread + std::min(static_cast<size_t>(t), remainder);
             size_t end_idx = start_idx + items_per_thread + (t < static_cast<int>(remainder) ? 1 : 0);
             
             gen_threads.emplace_back([&, t, start_idx, end_idx]() {
-                create_test_data(thread_test_data[t].get(), start_idx, end_idx);
-                size_t completed = threads_completed.fetch_add(1) + 1;
-                if (!json_output && completed % 4 == 0) {
-                    std::cout << "  Generated data for " << completed << "/" << num_threads << " threads...\n" << std::flush;
-                }
+                create_test_data(thread_test_data[t].get(), start_idx, end_idx, &total_items_generated);
+                threads_completed.fetch_add(1);
             });
+        }
+        
+        // Progress bar for test data generation
+        if (!json_output && num_iterations > 100000) {  // Only show progress for large datasets
+            const int progress_bar_width = 50;
+            size_t last_progress_update = 0;
+            
+            while (threads_completed.load() < static_cast<size_t>(num_threads)) {
+                size_t generated = total_items_generated.load(std::memory_order_relaxed);
+                
+                // Only update if progress changed significantly
+                if (generated - last_progress_update < num_iterations / 100 && 
+                    threads_completed.load() < static_cast<size_t>(num_threads)) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    continue;
+                }
+                last_progress_update = generated;
+                
+                double progress = static_cast<double>(generated) / num_iterations;
+                
+                // Time estimation
+                auto elapsed = std::chrono::high_resolution_clock::now() - gen_start_time;
+                double elapsed_sec = std::chrono::duration<double>(elapsed).count();
+                double estimated_total = elapsed_sec / progress;
+                double estimated_remaining = estimated_total - elapsed_sec;
+                
+                // Progress bar
+                std::cout << "\r  [";
+                int filled = static_cast<int>(progress * progress_bar_width);
+                for (int i = 0; i < progress_bar_width; ++i) {
+                    if (i < filled) std::cout << "=";
+                    else if (i == filled) std::cout << ">";
+                    else std::cout << " ";
+                }
+                std::cout << "] " << std::fixed << std::setprecision(1) 
+                          << (progress * 100) << "% "
+                          << "(" << (generated / 1000000) << "M/" << (num_iterations / 1000000) << "M) "
+                          << "ETA: " << static_cast<int>(estimated_remaining) << "s" << std::flush;
+            }
+            std::cout << "\r  [" << std::string(progress_bar_width, '=') << "] 100.0% "
+                      << "(" << (num_iterations / 1000000) << "M/" << (num_iterations / 1000000) << "M) "
+                      << "Done!                    \n";
         }
         
         for (auto& t : gen_threads) {

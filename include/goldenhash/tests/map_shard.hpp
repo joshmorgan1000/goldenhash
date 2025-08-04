@@ -70,7 +70,8 @@ public:
             expected = false;
             std::this_thread::yield();
         }
-        uint64_t unique = unique_;
+        // Return the actual number of unique hash values (size of the map)
+        uint64_t unique = map.size();
         in_use.store(false, std::memory_order_release);
         return unique;
     }

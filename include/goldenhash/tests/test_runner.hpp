@@ -127,10 +127,7 @@ public:
                 size_t shard_index = hash & 0x3F;  // We require exactly 64 shards
                 bool collision = shards_[shard_index]->process_hash(hash);
                 
-                // Debug: check if we're getting duplicate hashes
-                if (i < 10 && result_.algorithm == "goldenhash") {
-                    std::cout << "Hash[" << i << "]: " << hash << " (data: " << data_str.substr(0, 20) << "...)\n";
-                }
+                
                 
                 // Update avalanche score
                 if ((i & 0x3FF) == 0 && !data.empty()) {
@@ -149,16 +146,12 @@ public:
                     int bits_changed = __builtin_popcountll(diff);
                     avalanche_score += bits_changed;
                 }
-                if (collision) {
-                    collisions_.fetch_add(1, std::memory_order_relaxed);
-                } else {
-                    unique_.fetch_add(1, std::memory_order_relaxed);
-                }
+                // Note: We don't track collisions/unique at the runner level
+                // because runners share shards, so the shard-level tracking is authoritative
                 hashes_.fetch_add(1, std::memory_order_relaxed);
             }
             
-            result_.total_collisions = collisions_.load(std::memory_order_relaxed);
-            result_.unique_hashes = unique_.load(std::memory_order_relaxed);
+            // Note: total_collisions and unique_hashes are set from shard data in main.cpp
             result_.max_bucket_load = max_bucket_load;
             // Calculate average avalanche score (bits changed / important bits)
             size_t num_avalanche_tests = (total_items + 0x3FF) / 0x400;  // Number of avalanche tests performed

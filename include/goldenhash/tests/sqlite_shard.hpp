@@ -149,7 +149,14 @@ public:
             expected = false;
             std::this_thread::yield();
         }
-        uint64_t count = unique_count_;
+        
+        // Get the actual count of unique hashes from the database
+        sqlite3_stmt* count_stmt;
+        sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM hash_counts", -1, &count_stmt, nullptr);
+        sqlite3_step(count_stmt);
+        uint64_t count = sqlite3_column_int64(count_stmt, 0);
+        sqlite3_finalize(count_stmt);
+        
         in_use.store(false, std::memory_order_release);
         return count;
     }
