@@ -1,3 +1,4 @@
+/Users/joshmorgan/projects/encryption/goldenhash/build/CMakeFiles/xxhash.dir
 /Users/joshmorgan/projects/encryption/goldenhash/build/CMakeFiles/goldenhash.dir
 /Users/joshmorgan/projects/encryption/goldenhash/build/CMakeFiles/goldenhash_test.dir
 /Users/joshmorgan/projects/encryption/goldenhash/build/CMakeFiles/edit_cache.dir

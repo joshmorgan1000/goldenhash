@@ -1,5 +1,9 @@
-# ninja log v7
-1	420	1754110878232557001	CMakeFiles/goldenhash.dir/src/goldenhash.cpp.o	3b728f6906c59bc9
-421	447	1754110878652281103	lib/libgoldenhash.a	ffadd6da279a2c9a
-1	550	1754110878232885205	CMakeFiles/goldenhash_test.dir/src/main.cpp.o	c17a450a06f88429
-550	583	1754110878781547770	goldenhash_test	6fb6333a22b37d72
+# ninja log v5
+1	249	1754291543975942705	CMakeFiles/xxhash.dir/third_party/xxHash/xxhash.c.o	38f7861ae45ff360
+249	277	1754291544007055000	libxxhash.a	562f70e831b0d078
+1	425	1754291544149817947	CMakeFiles/goldenhash.dir/src/goldenhash.cpp.o	f2a68d8a3fe1b3ed
+426	450	1754291544180050000	lib/libgoldenhash.a	4d55e61535a4702d
+1	828	1754291544551596356	CMakeFiles/goldenhash_test.dir/src/main.cpp.o	476bafe09cca98d8
+829	859	1754291544586787478	goldenhash_test	78c15a361e439c68
+4	787	1754291791858452313	CMakeFiles/goldenhash_test.dir/src/main.cpp.o	476bafe09cca98d8
+787	825	1754291791899864787	goldenhash_test	78c15a361e439c68

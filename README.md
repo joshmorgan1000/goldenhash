@@ -34,10 +34,10 @@ cd goldenhash
 mkdir build && cd build
 
 # Configure with CMake
-cmake ..
+cmake .. -G Ninja
 
 # Build
-make -j
+ninja
 
 # Run tests
 ./goldenhash_test 1024 100000

@@ -1,0 +1,4 @@
+build/
+.claude/
+.vscode/
+run_builder.sh
