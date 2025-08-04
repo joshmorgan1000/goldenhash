@@ -36,7 +36,8 @@ public:
         }
         
         // Create table if it doesn't exist
-        const char* create_table = "CREATE TABLE IF NOT EXISTS hash_counts (hash INTEGER PRIMARY KEY, count INTEGER)";
+        // Use BLOB for hash to handle full 64-bit unsigned range
+        const char* create_table = "CREATE TABLE IF NOT EXISTS hash_counts (hash BLOB PRIMARY KEY, count INTEGER)";
         if (sqlite3_exec(db, create_table, nullptr, nullptr, nullptr) != SQLITE_OK) {
             sqlite3_close(db);
             throw std::runtime_error("Failed to create table in shard: " + std::string(sqlite3_errmsg(db)));
@@ -95,17 +96,26 @@ public:
             std::this_thread::yield();
         }
         // Check if hash exists
-        sqlite3_bind_int64(select_stmt, 1, hash);
+        sqlite3_bind_blob(select_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
         int count = 0;
         if (sqlite3_step(select_stmt) == SQLITE_ROW) {
             count = sqlite3_column_int(select_stmt, 0);
         }
         sqlite3_reset(select_stmt);
+        
+        bool collision = false;
         if (count > 0) {
-            // Update existing (collision!)
-            collision_count_++;
-            count++;  // Increment count
-            sqlite3_bind_int64(update_stmt, 1, hash);
+            // Update existing
+            count++;  // Increment count to match what will be in database
+            if (count == 2) {
+                // This is the first collision for this hash
+                collision_count_++;
+                collision = true;
+            } else if (count > 2) {
+                // Subsequent collision
+                collision = true;
+            }
+            sqlite3_bind_blob(update_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
             sqlite3_step(update_stmt);
             sqlite3_reset(update_stmt);
             if (static_cast<uint64_t>(count) > max_count_) {
@@ -114,7 +124,7 @@ public:
         } else {
             // Insert new
             unique_count_++;
-            sqlite3_bind_int64(insert_stmt, 1, hash);
+            sqlite3_bind_blob(insert_stmt, 1, &hash, sizeof(hash), SQLITE_STATIC);
             sqlite3_step(insert_stmt);
             sqlite3_reset(insert_stmt);
             if (1 > max_count_) {
@@ -127,7 +137,7 @@ public:
         }
         // Release spinlock
         in_use.store(false, std::memory_order_release);
-        return count > 0;
+        return collision;
     }
     
     void commit_batch() {

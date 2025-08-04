@@ -172,6 +172,11 @@ public:
     GoldenHash(uint64_t table_size, uint64_t seed = 0);
     
     /**
+     * @brief Destructor - cleans up heap-allocated S-boxes
+     */
+    ~GoldenHash();
+    
+    /**
      * @brief Hash function
      * @param data Pointer to data to hash
      * @param len Length of data in bytes
@@ -466,8 +471,11 @@ private:
     uint64_t seed_;          // Seed value
     
     // Compressive S-boxes for irreversibility
-    static constexpr size_t SBOX_SIZE = (1 << 14);  // 11-bit to 8-bit compression
-    std::vector<std::vector<uint8_t>> sboxes;
+    static constexpr size_t SBOX_SIZE = (1 << 12);  // 12-bit to 8-bit compression (4KB per S-box)
+    static constexpr size_t NUM_SBOXES = 8;
+    
+    // Direct array allocation for better performance and cache locality
+    alignas(64) uint8_t* sboxes[NUM_SBOXES];
 
     /**
      * @brief Simple primality test

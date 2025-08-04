@@ -193,6 +193,44 @@ build sbox_test: CXX_EXECUTABLE_LINKER__sbox_test_Release CMakeFiles/sbox_test.d
   TARGET_FILE = sbox_test
   TARGET_PDB = sbox_test.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target sqlite_debug
+
+
+#############################################
+# Order-only phony target for sqlite_debug
+
+build cmake_object_order_depends_target_sqlite_debug: phony || cmake_object_order_depends_target_goldenhash
+
+build CMakeFiles/sqlite_debug.dir/src/sqlite_debug.cpp.o: CXX_COMPILER__sqlite_debug_unscanned_Release /Users/joshmorgan/projects/encryption/goldenhash/src/sqlite_debug.cpp || cmake_object_order_depends_target_sqlite_debug
+  CONFIG = Release
+  DEP_FILE = CMakeFiles/sqlite_debug.dir/src/sqlite_debug.cpp.o.d
+  FLAGS = -Wall -Wextra -O3 -march=native -O3 -DNDEBUG -std=c++2b -arch arm64
+  INCLUDES = -I/Users/joshmorgan/projects/encryption/goldenhash/include
+  OBJECT_DIR = CMakeFiles/sqlite_debug.dir
+  OBJECT_FILE_DIR = CMakeFiles/sqlite_debug.dir/src
+  TARGET_COMPILE_PDB = CMakeFiles/sqlite_debug.dir/
+  TARGET_PDB = sqlite_debug.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target sqlite_debug
+
+
+#############################################
+# Link the executable sqlite_debug
+
+build sqlite_debug: CXX_EXECUTABLE_LINKER__sqlite_debug_Release CMakeFiles/sqlite_debug.dir/src/sqlite_debug.cpp.o | lib/libgoldenhash.a /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libsqlite3.tbd || lib/libgoldenhash.a
+  CONFIG = Release
+  FLAGS = -Wall -Wextra -O3 -march=native -O3 -DNDEBUG -arch arm64
+  LINK_LIBRARIES = lib/libgoldenhash.a  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libsqlite3.tbd
+  OBJECT_DIR = CMakeFiles/sqlite_debug.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_COMPILE_PDB = CMakeFiles/sqlite_debug.dir/
+  TARGET_FILE = sqlite_debug
+  TARGET_PDB = sqlite_debug.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -234,7 +272,7 @@ build xxhash: phony libxxhash.a
 #############################################
 # Folder: /Users/joshmorgan/projects/encryption/goldenhash/build
 
-build all: phony libxxhash.a lib/libgoldenhash.a goldenhash_test sbox_test
+build all: phony libxxhash.a lib/libgoldenhash.a goldenhash_test sbox_test sqlite_debug
 
 # =============================================================================
 # Built-in targets

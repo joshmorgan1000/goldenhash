@@ -41,10 +41,10 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
     // Factorize for mixed-radix if needed
     factors = factorize(N);
     
-    // Initialize compressive S-boxes (14-bit to 8-bit)
-    sboxes.resize(8);
-    for (size_t i = 0; i < 8; i++) {
-        sboxes[i].resize(SBOX_SIZE);
+    // Initialize compressive S-boxes (12-bit to 8-bit)
+    // 4KB per S-box fits in L1 cache
+    for (size_t i = 0; i < NUM_SBOXES; i++) {
+        sboxes[i] = new (std::align_val_t(64)) uint8_t[SBOX_SIZE];
     }
     
     // Generate S-box 1: compress 8 bits to 8 bits using golden ratio primes
@@ -60,8 +60,8 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
     h = (h & ~prime_mixed) | (((h ^ prime_product) >> 13) ^ working_mod);
     h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
     initial_hash = h;
-    for (size_t j = 0; j < 8; j++) {
-        // Fill up sbox 1
+    for (size_t j = 0; j < NUM_SBOXES; j++) {
+        // Fill up sbox j
         for (size_t i = 0; i < SBOX_SIZE; i++) {
             // Mix using AND/OR operations with primes
             h = (h * prime_product) ^ prime_mod;
@@ -70,6 +70,15 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
             h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
             sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
         }
+    }
+}
+
+/**
+ * @brief Destructor - cleans up heap-allocated S-boxes
+ */
+GoldenHash::~GoldenHash() {
+    for (size_t i = 0; i < NUM_SBOXES; i++) {
+        delete[] sboxes[i];
     }
 }
 
@@ -83,34 +92,101 @@ uint64_t GoldenHash::hash(const uint8_t* data, size_t len) const {
     uint64_t h = initial_hash;
     uint64_t state = seed_ ^ prime_product;
     
-    // Process each byte
-    for (size_t i = 0; i < len; i++) {
+    size_t i = 0;
+    
+    // Process 8 bytes at a time
+    const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
+    size_t len64 = len / 8;
+    
+    for (size_t j = 0; j < len64; j++) {
+        uint64_t chunk = data64[j];
+        
+        // Mix the 64-bit chunk into state
+        state ^= chunk;
+        state *= prime_low;
+        state ^= (state >> 17);
+        
+        // Process all 8 bytes in parallel using S-boxes
+        uint64_t mixed = state ^ h;
+        
+        // Extract 5 x 12-bit indices from the 64-bit mixed value
+        uint64_t idx1 = mixed & 0xFFF;
+        uint64_t idx2 = (mixed >> 12) & 0xFFF;
+        uint64_t idx3 = (mixed >> 24) & 0xFFF;
+        uint64_t idx4 = (mixed >> 36) & 0xFFF;
+        uint64_t idx5 = (mixed >> 48) & 0xFFF;
+        
+        // For remaining indices, mix state differently
+        mixed = (state << 13) ^ (h >> 7);
+        uint64_t idx6 = mixed & 0xFFF;
+        uint64_t idx7 = (mixed >> 12) & 0xFFF;
+        uint64_t idx8 = (mixed >> 24) & 0xFFF;
+        
+        // Prefetch next round's S-box data if available
+        if (j + 1 < len64) {
+            uint64_t next_chunk = data64[j + 1];
+            uint64_t next_state = state ^ next_chunk;
+            next_state *= prime_low;
+            next_state ^= (next_state >> 17);
+            uint64_t next_mixed = next_state ^ h;
+            
+            // Prefetch first 5 S-boxes
+            __builtin_prefetch(&sboxes[0][next_mixed & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[1][(next_mixed >> 12) & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[2][(next_mixed >> 24) & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[3][(next_mixed >> 36) & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[4][(next_mixed >> 48) & 0xFFF], 0, 3);
+            
+            // Prefetch remaining 3 S-boxes
+            next_mixed = (next_state << 13) ^ (h >> 7);
+            __builtin_prefetch(&sboxes[5][next_mixed & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[6][(next_mixed >> 12) & 0xFFF], 0, 3);
+            __builtin_prefetch(&sboxes[7][(next_mixed >> 24) & 0xFFF], 0, 3);
+        }
+        
+        // Perform S-box lookups - unroll for better pipelining
+        uint8_t c1 = sboxes[0][idx1];
+        uint8_t c2 = sboxes[1][idx2];
+        uint8_t c3 = sboxes[2][idx3];
+        uint8_t c4 = sboxes[3][idx4];
+        uint8_t c5 = sboxes[4][idx5];
+        uint8_t c6 = sboxes[5][idx6];
+        uint8_t c7 = sboxes[6][idx7];
+        uint8_t c8 = sboxes[7][idx8];
+        
+        // Combine all compressed values
+        uint64_t compressed = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                             ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                             ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                             ((uint64_t)c7 << 8) | c8;
+        
+        h ^= compressed;
+        h *= prime_high;
+        h ^= (h >> 29);
+        
+        i += 8;
+    }
+    
+    // Process remaining bytes
+    for (; i < len; i++) {
         // Mix input byte into state
         state = (state << 8) | data[i];
         state *= prime_low;
         state ^= (state >> 17);
         
         // Use 3 S-box compressions per byte for irreversibility
-        // Each compression takes 14 bits and outputs 8 bits
-        
-        // First S-box lookup
-        uint64_t idx1 = (state ^ h) & 0x3FFF;
+        uint64_t idx1 = (state ^ h) & 0xFFF;
         uint8_t compressed1 = sboxes[(i * 3) & 7][idx1];
         
-        // Second S-box lookup with different bits
-        uint64_t idx2 = ((state >> 14) ^ (h >> 7)) & 0x3FFF;
+        uint64_t idx2 = ((state >> 12) ^ (h >> 6)) & 0xFFF;
         uint8_t compressed2 = sboxes[(i * 3 + 1) & 7][idx2];
         
-        // Third S-box lookup
-        uint64_t idx3 = ((state >> 28) ^ (h >> 21)) & 0x3FFF;
+        uint64_t idx3 = ((state >> 24) ^ (h >> 18)) & 0xFFF;
         uint8_t compressed3 = sboxes[(i * 3 + 2) & 7][idx3];
         
-        // Combine compressed values back into hash state
-        // This is where irreversibility happens - we've compressed 42 bits to 24 bits
         h = (h << 24) | (compressed1 << 16) | (compressed2 << 8) | compressed3;
         h ^= state;
         
-        // Additional mixing
         h *= prime_high;
         h ^= (h >> 29);
     }
@@ -175,7 +251,7 @@ void GoldenHash::analyze_sboxes() const {
     const std::string BLUE = "\033[34m";
     const std::string BOLD = "\033[1m";
     
-    std::cout << "\n" << BOLD << "=== S-BOX ANALYSIS ===" << RESET << "\n";
+    std::cout << "\n" << BOLD << "=== S-BOX ANALYSIS (12-bit → 8-bit compression) ===" << RESET << "\n";
     
     // Create header for table
     std::cout << std::left << std::setw(10) << "S-box"
@@ -188,7 +264,7 @@ void GoldenHash::analyze_sboxes() const {
               << "\n";
     std::cout << std::string(95, '-') << "\n";
     
-    for (int j = 0; j < 8; j++) {
+    for (size_t j = 0; j < NUM_SBOXES; j++) {
         // Count frequency of each output value
         std::vector<int> output_freq(256, 0);
         for (size_t i = 0; i < SBOX_SIZE; i++) {
@@ -246,12 +322,12 @@ void GoldenHash::analyze_sboxes() const {
         // For a specific input difference, count how many times each output difference occurs
         // We'll test a few specific input differences
         int max_diff_count = 0;
-        std::vector<int> test_diffs = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
+        std::vector<int> test_diffs = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048};
         
         for (int in_diff : test_diffs) {
             std::map<int, int> out_diff_count;
             for (size_t i = 0; i < SBOX_SIZE - in_diff; i++) {
-                int out_diff = (sboxes[j][i + in_diff] - sboxes[j][i] + 256) % 256;
+                int out_diff = (sboxes[j][i + in_diff] - sboxes[j][i] + 256) & 0xFF;
                 out_diff_count[out_diff]++;
             }
             for (const auto& pair : out_diff_count) {
@@ -320,7 +396,7 @@ void GoldenHash::analyze_sboxes() const {
     std::cout << "\n" << BOLD << "Legend:" << RESET << "\n";
     std::cout << "  Unused: " << GREEN << "0 is good" << RESET << ", " << RED << ">0 is bad" << RESET << "\n";
     std::cout << "  Bit Changes: " << GREEN << "~4.0 is ideal" << RESET << " (50% avalanche)\n";
-    std::cout << "  Diff Uniformity: " << GREEN << "≤64 good" << RESET << ", " << YELLOW << "≤128 okay" << RESET << ", " << RED << ">128 poor" << RESET << " (for 14→8 bit S-box)\n";
+    std::cout << "  Diff Uniformity: " << GREEN << "≤64 good" << RESET << ", " << YELLOW << "≤128 okay" << RESET << ", " << RED << ">128 poor" << RESET << " (for 12→8 bit S-box)\n";
     std::cout << "  Lower is better for: Linearity, Sequential\n";
 }
 

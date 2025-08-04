@@ -50,11 +50,15 @@ public:
         uint32_t& count = map[hash];
         count++;
         bool collision = false;
-        if (count > 1) {
+        if (count == 2) {
+            // This is the first collision for this hash
             collisions_++;
             collision = true;
-        } else {
+        } else if (count == 1) {
             unique_++;
+        } else {
+            // count > 2, subsequent collision
+            collision = true;
         }
         if (count > max_count) {
             max_count = count;

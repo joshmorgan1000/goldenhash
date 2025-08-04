@@ -43,3 +43,7 @@ target_compile_definitions(goldenhash_test PRIVATE HAVE_SQLITE3)
 # S-box analysis executable
 add_executable(sbox_test src/sbox_test.cpp)
 target_link_libraries(sbox_test PRIVATE goldenhash)
+
+# SQLite debug executable
+add_executable(sqlite_debug src/sqlite_debug.cpp)
+target_link_libraries(sqlite_debug PRIVATE goldenhash SQLite::SQLite3)

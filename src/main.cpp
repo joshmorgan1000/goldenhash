@@ -36,6 +36,7 @@
 #include <chrono>
 #include <cmath>
 #include <getopt.h>
+#include <filesystem>
 
 using namespace goldenhash;
 using namespace goldenhash::tests;
@@ -256,7 +257,10 @@ int main(int argc, char* argv[]) {
         
         for (int i = 0; i < 64; ++i) {
             if (use_sqlite) {
-                std::string filename = "shard_" + std::to_string(i) + ".db";
+                // Include algorithm name in filename to avoid conflicts between algorithms
+                // Create data directory if it doesn't exist
+                std::filesystem::create_directories("data");
+                std::string filename = "data/" + algo + "_shard_" + std::to_string(i) + ".db";
                 shards.push_back(new SQLiteShard(filename, i, 0, UINT64_MAX));
             } else {
                 shards.push_back(new HashMapShard());
@@ -394,6 +398,12 @@ int main(int argc, char* argv[]) {
             total_shard_collisions += shards[i]->get_collisions();
         }
         
+        // Debug output for large table sizes
+        if (table_size > 1000000000 && !json_output) {
+            std::cout << "\nDEBUG: Algorithm " << algo << " - Total unique across shards: " << total_unique 
+                      << ", Total shard collisions: " << total_shard_collisions << "\n";
+        }
+        
         
         // Collect shard metrics for max load and distribution
         uint64_t max_bucket_load = 0;
@@ -425,6 +435,15 @@ int main(int argc, char* argv[]) {
         }
         result.total_collisions = actual_collisions;
         result.collision_ratio = expected_collisions > 0 ? static_cast<double>(actual_collisions) / expected_collisions : 0.0;
+        
+        // Debug output for collision counting
+        if (!json_output && table_size == 1048576) {
+            std::cout << "\nDEBUG " << algo << ": num_iterations=" << num_iterations 
+                      << ", total_unique=" << total_unique 
+                      << ", actual_collisions=" << actual_collisions
+                      << ", expected_collisions=" << expected_collisions
+                      << ", collision_ratio=" << result.collision_ratio << "\n";
+        }
         
         // Calculate chi-square for distribution uniformity across shards
         double expected_per_shard = static_cast<double>(num_iterations) / 64.0;

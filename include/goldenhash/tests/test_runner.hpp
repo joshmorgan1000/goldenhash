@@ -123,7 +123,9 @@ public:
                 std::string data_str = test_data_->get_test(i);
                 std::vector<uint8_t> data(data_str.begin(), data_str.end());
                 uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
-                size_t shard_index = hash & 0x3F;  // We require exactly 64 shards
+                // Note: hash is already modulo'd by compute_hash for non-goldenhash algorithms
+                // Use upper bits for sharding to avoid correlation with table index
+                size_t shard_index = (hash >> 14) & 0x3F;  // We require exactly 64 shards
                 shards_[shard_index]->process_hash(hash);
                 
                 // Update avalanche score
