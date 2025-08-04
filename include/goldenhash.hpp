@@ -206,13 +206,36 @@ public:
      * @brief Get the working modulus
      * @return Working modulus for operations
      */
-    uint64_t get_working_mod() const;
+    uint64_t get_prime_mod() const {
+        return prime_mod;
+    }
+
+    uint64_t get_prime_product() const {
+        return prime_product;
+    }
+
+    uint64_t get_working_mod() const {
+        return working_mod;
+    }
+
+    uint64_t get_prime_mixed() const {
+        return prime_mixed;
+    }
+
+    uint64_t get_initial_hash() const {
+        return initial_hash;
+    }
     
     /**
      * @brief Get the factorization of the working modulus
      * @return Vector of factors
      */
     const std::vector<uint64_t>& get_factors() const;
+    
+    /**
+     * @brief Analyze S-box distribution and properties
+     */
+    void analyze_sboxes() const;
 
     /**
      * @brief Runs a round of tests for a single table size
@@ -433,10 +456,18 @@ private:
     uint64_t N;              // Table size
     uint64_t prime_high;     // Prime near N/φ
     uint64_t prime_low;      // Prime near N/φ²
-    uint64_t working_mod;    // Modulus for operations
+    uint64_t prime_product;
+    uint64_t prime_mod;
+    uint64_t working_mod;
+    uint64_t prime_mixed;    // Mixed prime for compression
+    uint64_t initial_hash;
     std::vector<uint64_t> factors;
     std::vector<uint64_t> secret;  // Modular secret for mixing
     uint64_t seed_;          // Seed value
+    
+    // Compressive S-boxes for irreversibility
+    static constexpr size_t SBOX_SIZE = (1 << 14);  // 11-bit to 8-bit compression
+    std::vector<std::vector<uint8_t>> sboxes;
 
     /**
      * @brief Simple primality test

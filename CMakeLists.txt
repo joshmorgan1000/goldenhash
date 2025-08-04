@@ -39,3 +39,7 @@ set_target_properties(goldenhash PROPERTIES
 add_executable(goldenhash_test src/main.cpp)
 target_link_libraries(goldenhash_test PRIVATE goldenhash m xxhash SQLite::SQLite3 OpenSSL::Crypto)
 target_compile_definitions(goldenhash_test PRIVATE HAVE_SQLITE3)
+
+# S-box analysis executable
+add_executable(sbox_test src/sbox_test.cpp)
+target_link_libraries(sbox_test PRIVATE goldenhash)

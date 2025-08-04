@@ -38,36 +38,38 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
     prime_high = find_nearest_prime(target_high);
     prime_low = find_nearest_prime(target_low);
     
-    // Determine working modulus
-    if (is_prime(N)) {
-        // For prime N, we have options:
-        // 1. Use N-1 (Fermat's little theorem) - causes issues with consecutive primes
-        // 2. Use next composite number
-        // 3. Use N+1 
-        // For now, use N+1 to avoid collision issues
-        working_mod = N + 1;
-    } else {
-        // For composite N, use N
-        working_mod = N;
+    // Factorize for mixed-radix if needed
+    factors = factorize(N);
+    
+    // Initialize compressive S-boxes (14-bit to 8-bit)
+    sboxes.resize(8);
+    for (size_t i = 0; i < 8; i++) {
+        sboxes[i].resize(SBOX_SIZE);
     }
     
-    // Factorize for mixed-radix if needed
-    factors = factorize(working_mod);
-    
-    // Initialize secret for 3 complete rotations
-    // For modular arithmetic, we want values that cycle through the space
-    size_t secret_size = 24;  // Keep same structure as XXH3
-    secret.resize(secret_size);
-    
-    // Generate secret values using golden ratio mixing
-    uint64_t h = N;
-    for (size_t i = 0; i < secret_size; i++) {
-        h = h * prime_high + i;
-        h = (h + h / 33) % working_mod;
-        h = (h * prime_low) % working_mod;
-        h = (h + h / 29) % working_mod;
-        // Already in modular space
-        secret[i] = h;
+    // Generate S-box 1: compress 8 bits to 8 bits using golden ratio primes
+    // Use mixed AND/OR operations with primes for better mixing
+    prime_product = (prime_high * prime_low);
+    prime_mod = prime_product % N;
+    working_mod = (((N | prime_low) ^ (N & prime_high)) % (N << 4)) >> 4;
+    prime_mixed = (prime_product * (1 / GOLDEN_RATIO));
+
+    uint64_t h = ((N ^ prime_product) * seed_) | (seed_ & 0xFFF);
+    h = (h * prime_product) ^ prime_mod;
+    h = (h * prime_low) ^ (prime_high);
+    h = (h & ~prime_mixed) | (((h ^ prime_product) >> 13) ^ working_mod);
+    h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
+    initial_hash = h;
+    for (size_t j = 0; j < 8; j++) {
+        // Fill up sbox 1
+        for (size_t i = 0; i < SBOX_SIZE; i++) {
+            // Mix using AND/OR operations with primes
+            h = (h * prime_product) ^ prime_mod;
+            h = (h * prime_low) ^ (prime_high * (i + 1));
+            h = (h & ~prime_mixed) | (((h ^ prime_product) >> 13) ^ working_mod);
+            h = ((h & prime_mixed) << 4) | (((h ^ prime_product) / working_mod) >> 4);
+            sboxes[j][i] = ~((i ^ ((h & prime_low) ^ (h | prime_high))) ^ (h / prime_mod)) & 0xFF;
+        }
     }
 }
 
@@ -78,40 +80,47 @@ GoldenHash::GoldenHash(uint64_t table_size, uint64_t seed) : N(table_size), seed
  * @return Hash value in range [0, N)
  */
 uint64_t GoldenHash::hash(const uint8_t* data, size_t len) const {
-    // Create chaos factor that incorporates table size
-    uint64_t chaos = 0x5851f42d4c957f2dULL ^ (N * 0x9e3779b97f4a7c15ULL);
-    uint64_t h = seed_ ^ chaos;
+    uint64_t h = initial_hash;
+    uint64_t state = seed_ ^ prime_product;
     
-    // Process each byte with secret mixing - NO MODULOS in the loop
+    // Process each byte
     for (size_t i = 0; i < len; i++) {
-        // Mix with secret value (3 rotations through 24 values)
-        uint64_t secret_val = secret[i % secret.size()];
+        // Mix input byte into state
+        state = (state << 8) | data[i];
+        state *= prime_low;
+        state ^= (state >> 17);
         
-        // Input mixing with XOR and multiplication
-        h ^= (data[i] + secret_val) * prime_low;
+        // Use 3 S-box compressions per byte for irreversibility
+        // Each compression takes 14 bits and outputs 8 bits
+        
+        // First S-box lookup
+        uint64_t idx1 = (state ^ h) & 0x3FFF;
+        uint8_t compressed1 = sboxes[(i * 3) & 7][idx1];
+        
+        // Second S-box lookup with different bits
+        uint64_t idx2 = ((state >> 14) ^ (h >> 7)) & 0x3FFF;
+        uint8_t compressed2 = sboxes[(i * 3 + 1) & 7][idx2];
+        
+        // Third S-box lookup
+        uint64_t idx3 = ((state >> 28) ^ (h >> 21)) & 0x3FFF;
+        uint8_t compressed3 = sboxes[(i * 3 + 2) & 7][idx3];
+        
+        // Combine compressed values back into hash state
+        // This is where irreversibility happens - we've compressed 42 bits to 24 bits
+        h = (h << 24) | (compressed1 << 16) | (compressed2 << 8) | compressed3;
+        h ^= state;
+        
+        // Additional mixing
         h *= prime_high;
-        
-        // Additional mixing with position-dependent value
-        h ^= h >> 33;
-        h *= (prime_high + i * secret_val);
-        h ^= h >> 29;
+        h ^= (h >> 29);
     }
     
-    // Final avalanche mixing - still no modulos
-    // Mix in table size again to ensure it affects the distribution
-    h ^= N * 0x165667919E3779F9ULL;  // XXH3 avalanche prime
+    // Final avalanche
+    h ^= len * prime_mixed;
+    h ^= (h >> 33);
+    h *= prime_low;
+    h ^= (h >> 27);
     
-    // Standard integer hash avalanche
-    h ^= h >> 33;
-    h *= 0xff51afd7ed558ccdULL;
-    h ^= h >> 33;
-    h *= 0xc4ceb9fe1a85ec53ULL;
-    h ^= h >> 33;
-    
-    // Mix in length for additional entropy
-    h ^= len * prime_low;
-    
-    // SINGLE modulo at the very end
     return h % N;
 }
 
@@ -149,16 +158,171 @@ uint64_t GoldenHash::get_prime_high() const { return prime_high; }
 uint64_t GoldenHash::get_prime_low() const { return prime_low; }
 
 /**
- * @brief Get the working modulus
- * @return Working modulus for operations
- */
-uint64_t GoldenHash::get_working_mod() const { return working_mod; }
-
-/**
  * @brief Get the factorization of the working modulus
  * @return Vector of factors
  */
 const std::vector<uint64_t>& GoldenHash::get_factors() const { return factors; }
+
+/**
+ * @brief Analyze S-box distribution and properties
+ */
+void GoldenHash::analyze_sboxes() const {
+    // ANSI color codes
+    const std::string RESET = "\033[0m";
+    const std::string RED = "\033[31m";
+    const std::string GREEN = "\033[32m";
+    const std::string YELLOW = "\033[33m";
+    const std::string BLUE = "\033[34m";
+    const std::string BOLD = "\033[1m";
+    
+    std::cout << "\n" << BOLD << "=== S-BOX ANALYSIS ===" << RESET << "\n";
+    
+    // Create header for table
+    std::cout << std::left << std::setw(10) << "S-box"
+              << std::setw(12) << "Unused"
+              << std::setw(12) << "Std Dev"
+              << std::setw(15) << "Bit Changes"
+              << std::setw(18) << "Diff Unif"
+              << std::setw(15) << "Linearity"
+              << std::setw(15) << "Sequential"
+              << "\n";
+    std::cout << std::string(95, '-') << "\n";
+    
+    for (int j = 0; j < 8; j++) {
+        // Count frequency of each output value
+        std::vector<int> output_freq(256, 0);
+        for (size_t i = 0; i < SBOX_SIZE; i++) {
+            output_freq[sboxes[j][i]]++;
+        }
+        
+        // Find min/max frequencies
+        int min_freq = SBOX_SIZE, max_freq = 0;
+        int unused_outputs = 0;
+        for (int i = 0; i < 256; i++) {
+            if (output_freq[i] == 0) unused_outputs++;
+            if (output_freq[i] > 0 && output_freq[i] < min_freq) min_freq = output_freq[i];
+            if (output_freq[i] > max_freq) max_freq = output_freq[i];
+        }
+        
+        // Calculate average frequency and standard deviation
+        double avg_freq = double(SBOX_SIZE) / 256.0;
+        double variance = 0;
+        for (int i = 0; i < 256; i++) {
+            double diff = output_freq[i] - avg_freq;
+            variance += diff * diff;
+        }
+        double std_dev = std::sqrt(variance / 256);
+        
+        // Bit distribution analysis
+        std::vector<int> bit_count(8, 0);
+        for (size_t i = 0; i < SBOX_SIZE; i++) {
+            uint8_t val = sboxes[j][i];
+            for (int bit = 0; bit < 8; bit++) {
+                if (val & (1 << bit)) bit_count[bit]++;
+            }
+        }
+        
+        
+        // Check for obvious patterns
+        int sequential_count = 0;
+        for (size_t i = 1; i < SBOX_SIZE; i++) {
+            if (sboxes[j][i] == (sboxes[j][i-1] + 1) % 256) sequential_count++;
+        }
+        
+        // 1. Avalanche test: How many output bits change when input changes by 1
+        double total_bit_changes = 0;
+        int avalanche_tests = 0;
+        for (size_t i = 0; i < SBOX_SIZE - 1; i++) {
+            uint8_t val1 = sboxes[j][i];
+            uint8_t val2 = sboxes[j][i + 1];
+            uint8_t diff = val1 ^ val2;
+            int bits_changed = __builtin_popcount(diff);
+            total_bit_changes += bits_changed;
+            avalanche_tests++;
+        }
+        double avg_avalanche = total_bit_changes / avalanche_tests;
+        
+        // 2. Differential uniformity: max occurrences of same output difference
+        // For a specific input difference, count how many times each output difference occurs
+        // We'll test a few specific input differences
+        int max_diff_count = 0;
+        std::vector<int> test_diffs = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
+        
+        for (int in_diff : test_diffs) {
+            std::map<int, int> out_diff_count;
+            for (size_t i = 0; i < SBOX_SIZE - in_diff; i++) {
+                int out_diff = (sboxes[j][i + in_diff] - sboxes[j][i] + 256) % 256;
+                out_diff_count[out_diff]++;
+            }
+            for (const auto& pair : out_diff_count) {
+                if (pair.second > max_diff_count) max_diff_count = pair.second;
+            }
+        }
+        
+        // 3. Non-linearity measure: distance from nearest affine function
+        int min_matches = SBOX_SIZE;
+        for (int a = 0; a < 8; a++) {  // Test a few linear functions
+            for (int b = 0; b < 8; b++) {
+                int matches = 0;
+                for (size_t i = 0; i < SBOX_SIZE; i++) {
+                    uint8_t expected = (a * i + b) & 0xFF;
+                    if (sboxes[j][i] == expected) matches++;
+                }
+                if (matches < min_matches) min_matches = matches;
+            }
+        }
+        
+        // Output row in table
+        std::cout << std::left << std::setw(10) << ("S-box " + std::to_string(j));
+        
+        // Unused outputs (red if > 0)
+        if (unused_outputs > 0) {
+            std::cout << RED << std::setw(12) << unused_outputs << RESET;
+        } else {
+            std::cout << GREEN << std::setw(12) << unused_outputs << RESET;
+        }
+        
+        // Standard deviation
+        std::cout << std::fixed << std::setprecision(2) << std::setw(12) << std_dev;
+        
+        // Bit changes (green if close to 4.0)
+        if (std::abs(avg_avalanche - 4.0) < 0.5) {
+            std::cout << GREEN << std::setw(15) << avg_avalanche << RESET;
+        } else if (std::abs(avg_avalanche - 4.0) < 1.0) {
+            std::cout << YELLOW << std::setw(15) << avg_avalanche << RESET;
+        } else {
+            std::cout << RED << std::setw(15) << avg_avalanche << RESET;
+        }
+        
+        // Differential uniformity (color based on quality)
+        if (max_diff_count <= 64) {
+            std::cout << GREEN << std::setw(18) << max_diff_count << RESET;
+        } else if (max_diff_count <= 128) {
+            std::cout << YELLOW << std::setw(18) << max_diff_count << RESET;
+        } else {
+            std::cout << RED << std::setw(18) << max_diff_count << RESET;
+        }
+        
+        // Linearity
+        std::cout << std::setw(15) << (std::to_string(min_matches) + "/" + std::to_string(SBOX_SIZE));
+        
+        // Sequential patterns
+        if (sequential_count < 100) {
+            std::cout << GREEN << std::setw(15) << sequential_count << RESET;
+        } else {
+            std::cout << RED << std::setw(15) << sequential_count << RESET;
+        }
+        
+        std::cout << "\n";
+    }
+    
+    // Print legend
+    std::cout << "\n" << BOLD << "Legend:" << RESET << "\n";
+    std::cout << "  Unused: " << GREEN << "0 is good" << RESET << ", " << RED << ">0 is bad" << RESET << "\n";
+    std::cout << "  Bit Changes: " << GREEN << "~4.0 is ideal" << RESET << " (50% avalanche)\n";
+    std::cout << "  Diff Uniformity: " << GREEN << "≤64 good" << RESET << ", " << YELLOW << "≤128 okay" << RESET << ", " << RED << ">128 poor" << RESET << " (for 14→8 bit S-box)\n";
+    std::cout << "  Lower is better for: Linearity, Sequential\n";
+}
 
 /**
  * @brief Simple primality test

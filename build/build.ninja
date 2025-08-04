@@ -155,6 +155,44 @@ build goldenhash_test: CXX_EXECUTABLE_LINKER__goldenhash_test_Release CMakeFiles
   TARGET_FILE = goldenhash_test
   TARGET_PDB = goldenhash_test.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target sbox_test
+
+
+#############################################
+# Order-only phony target for sbox_test
+
+build cmake_object_order_depends_target_sbox_test: phony || cmake_object_order_depends_target_goldenhash
+
+build CMakeFiles/sbox_test.dir/src/sbox_test.cpp.o: CXX_COMPILER__sbox_test_unscanned_Release /Users/joshmorgan/projects/encryption/goldenhash/src/sbox_test.cpp || cmake_object_order_depends_target_sbox_test
+  CONFIG = Release
+  DEP_FILE = CMakeFiles/sbox_test.dir/src/sbox_test.cpp.o.d
+  FLAGS = -Wall -Wextra -O3 -march=native -O3 -DNDEBUG -std=c++2b -arch arm64
+  INCLUDES = -I/Users/joshmorgan/projects/encryption/goldenhash/include
+  OBJECT_DIR = CMakeFiles/sbox_test.dir
+  OBJECT_FILE_DIR = CMakeFiles/sbox_test.dir/src
+  TARGET_COMPILE_PDB = CMakeFiles/sbox_test.dir/
+  TARGET_PDB = sbox_test.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target sbox_test
+
+
+#############################################
+# Link the executable sbox_test
+
+build sbox_test: CXX_EXECUTABLE_LINKER__sbox_test_Release CMakeFiles/sbox_test.dir/src/sbox_test.cpp.o | lib/libgoldenhash.a || lib/libgoldenhash.a
+  CONFIG = Release
+  FLAGS = -Wall -Wextra -O3 -march=native -O3 -DNDEBUG -arch arm64
+  LINK_LIBRARIES = lib/libgoldenhash.a
+  OBJECT_DIR = CMakeFiles/sbox_test.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_COMPILE_PDB = CMakeFiles/sbox_test.dir/
+  TARGET_FILE = sbox_test
+  TARGET_PDB = sbox_test.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -196,7 +234,7 @@ build xxhash: phony libxxhash.a
 #############################################
 # Folder: /Users/joshmorgan/projects/encryption/goldenhash/build
 
-build all: phony libxxhash.a lib/libgoldenhash.a goldenhash_test
+build all: phony libxxhash.a lib/libgoldenhash.a goldenhash_test sbox_test
 
 # =============================================================================
 # Built-in targets

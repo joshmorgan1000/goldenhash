@@ -85,7 +85,7 @@ public:
             for (size_t i = 0; i < warmup; ++i) {
                 std::string data_str = test_data_->get_test(i);
                 std::vector<uint8_t> data(data_str.begin(), data_str.end());
-                uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
+                compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
             }
             // Benchmark
             auto start = std::chrono::high_resolution_clock::now();
@@ -93,7 +93,7 @@ public:
                 std::string data_str = test_data_->get_test(i);
                 total_bytes += data_str.size();
                 std::vector<uint8_t> data(data_str.begin(), data_str.end());
-                uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
+                compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
                 num_hashes++;
             }
             auto end = std::chrono::high_resolution_clock::now();
@@ -117,7 +117,6 @@ public:
         collision_thread = std::make_unique<std::thread>([this]() {
             size_t total_items = test_data_->size();
             size_t max_bucket_load = 0;
-            double chi_square = 0.0;
             double avalanche_score = 0.0;
 
             for (size_t i = 0; i < total_items; ++i) {
@@ -125,9 +124,7 @@ public:
                 std::vector<uint8_t> data(data_str.begin(), data_str.end());
                 uint64_t hash = compute_hash(result_.algorithm, data.data(), data.size(), result_.table_size, hasher_);
                 size_t shard_index = hash & 0x3F;  // We require exactly 64 shards
-                bool collision = shards_[shard_index]->process_hash(hash);
-                
-                
+                shards_[shard_index]->process_hash(hash);
                 
                 // Update avalanche score
                 if ((i & 0x3FF) == 0 && !data.empty()) {
