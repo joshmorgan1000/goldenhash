@@ -239,20 +239,27 @@ public:
     double get_expected_collisions() const {
         if (total_hashes_ <= 1) return 0.0;
         
-        // Birthday paradox approximation: n^2 / (2m)
-        // where n = number of hashes, m = hash space size
+        // For hash table collisions, we need to calculate expected number of items
+        // that hash to already-occupied buckets.
+        // Expected unique buckets = m * (1 - (1 - 1/m)^n)
+        // Expected collisions = n - expected unique buckets
+        
         double n = static_cast<double>(total_hashes_);
         double m = static_cast<double>(hash_space_size_);
         
-        // More accurate calculation for smaller values
-        if (total_hashes_ < 1000) {
-            // Using the exact formula: expected collisions = n - m(1 - (1-1/m)^n)
-            // But we already have the unique count, so:
-            return n - hash_counts_.size();
-        }
+        // For large n/m ratios, use the approximation to avoid numerical issues
+        double lambda = n / m;  // load factor
         
-        // Approximation for larger values
-        return (n * n) / (2.0 * m);
+        if (lambda > 5.0) {
+            // For high load factors, almost all buckets are occupied
+            // Expected unique buckets ≈ m
+            // Expected collisions ≈ n - m
+            return n - m;
+        } else {
+            // Use the exact formula: m * (1 - e^(-n/m))
+            double expected_unique = m * (1.0 - std::exp(-lambda));
+            return n - expected_unique;
+        }
     }
 
     /**

@@ -44,6 +44,4 @@ target_compile_definitions(goldenhash_test PRIVATE HAVE_SQLITE3)
 add_executable(sbox_test src/sbox_test.cpp)
 target_link_libraries(sbox_test PRIVATE goldenhash)
 
-# 64-bit hash demo
-add_executable(hash64_demo src/hash64_demo.cpp)
-target_link_libraries(hash64_demo PRIVATE goldenhash SQLite::SQLite3)
+

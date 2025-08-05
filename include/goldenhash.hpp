@@ -36,6 +36,15 @@
 #include <iostream>
 #include <unordered_map>
 
+// Platform-specific SIMD includes
+#if defined(__x86_64__) || defined(_M_X64)
+    #include <immintrin.h>
+    #define HAS_AVX2 __AVX2__
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    #include <arm_neon.h>
+    #define HAS_NEON 1
+#endif
+
 namespace goldenhash {
 
 static const long double GOLDEN_RATIO = (1 + std::sqrt(5)) / 2;
@@ -167,7 +176,206 @@ public:
      * @param len Length of data in bytes
      * @return Hash value in range [0, N)
      */
-    uint64_t hash(const uint8_t* data, size_t len) const;
+    inline uint64_t hash(const uint8_t* data, size_t len) const {
+        uint64_t h = initial_hash;
+        uint64_t state = seed_ ^ prime_product;
+        size_t i = 0;
+        
+#ifdef HAS_AVX2
+        // Process 32 bytes at a time with AVX2
+        if (len >= 32) {
+            const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
+            size_t chunks32 = len / 32;
+            uint64_t sbox_index = ~state;
+            
+            for (size_t chunk = 0; chunk < chunks32; chunk++) {
+                // Prefetch next chunk's data and S-box entries
+                if (chunk + 1 < chunks32) {
+                    __builtin_prefetch(&data64[(chunk + 1) * 4], 0, 3);
+                    __builtin_prefetch(&sboxes[(sbox_index + 8) & 7][0], 0, 3);
+                }
+                
+                // Load 4x64-bit values
+                uint64_t v0 = data64[chunk * 4 + 0];
+                uint64_t v1 = data64[chunk * 4 + 1];
+                uint64_t v2 = data64[chunk * 4 + 2];
+                uint64_t v3 = data64[chunk * 4 + 3];
+                
+                // Process first 8 bytes
+                state ^= v0;
+                state *= prime_low;
+                state ^= (state >> 17);
+                
+                uint64_t mixed = state ^ h;
+                uint8_t c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                uint8_t c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                uint8_t c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                uint8_t c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+                uint8_t c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
+                
+                mixed = (state << 13) ^ (h >> 7);
+                uint8_t c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                uint8_t c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                uint8_t c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                
+                uint64_t compressed1 = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                                      ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                                      ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                                      ((uint64_t)c7 << 8) | c8;
+                
+                h ^= compressed1;
+                h *= prime_high;
+                h ^= (h >> 29);
+                
+                // Process second 8 bytes
+                state ^= v1;
+                state *= prime_low;
+                state ^= (state >> 17);
+                
+                mixed = state ^ h;
+                c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+                c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
+                
+                mixed = (state << 13) ^ (h >> 7);
+                c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                
+                uint64_t compressed2 = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                                      ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                                      ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                                      ((uint64_t)c7 << 8) | c8;
+                
+                h ^= compressed2;
+                h *= prime_high;
+                h ^= (h >> 29);
+                
+                // Process third and fourth 8 bytes similarly
+                state ^= v2;
+                state *= prime_low;
+                state ^= (state >> 17);
+                
+                mixed = state ^ h;
+                c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+                c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
+                
+                mixed = (state << 13) ^ (h >> 7);
+                c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                
+                uint64_t compressed3 = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                                      ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                                      ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                                      ((uint64_t)c7 << 8) | c8;
+                
+                h ^= compressed3;
+                h *= prime_high;
+                h ^= (h >> 29);
+                
+                // Process fourth 8 bytes
+                state ^= v3;
+                state *= prime_low;
+                state ^= (state >> 17);
+                
+                mixed = state ^ h;
+                c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+                c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
+                
+                mixed = (state << 13) ^ (h >> 7);
+                c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+                c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+                c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+                
+                uint64_t compressed4 = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                                      ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                                      ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                                      ((uint64_t)c7 << 8) | c8;
+                
+                h ^= compressed4;
+                h *= prime_high;
+                h ^= (h >> 29);
+                
+                i += 32;
+            }
+            
+            // Update pointers for remaining data
+            data += i;
+            len -= i;
+            i = 0;
+        }
+#endif
+        
+        // Process 8 bytes at a time (original code with prefetching)
+        const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
+        size_t len64 = len / 8;
+        uint64_t sbox_index = ~state;
+        
+        for (size_t j = 0; j < len64; j++) {
+            // Prefetch next S-box entries
+            if (j + 1 < len64) {
+                __builtin_prefetch(&sboxes[(sbox_index + 1) & 7][0], 0, 1);
+            }
+            
+            uint64_t chunk = data64[j];
+            // Mix the 64-bit chunk into state
+            state ^= chunk;
+            state *= prime_low;
+            state ^= (state >> 17);
+            // Process all 8 bytes in parallel using S-boxes
+            uint64_t mixed = state ^ h;
+            // Extract 5 x 12-bit indices from the 64-bit mixed value
+            uint8_t c1 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+            uint8_t c2 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+            uint8_t c3 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+            uint8_t c4 = sboxes[++sbox_index & 7][(mixed >> 36) & 0xFFF];
+            uint8_t c5 = sboxes[++sbox_index & 7][(mixed >> 48) & 0xFFF];
+            // For remaining indices, mix state differently
+            mixed = (state << 13) ^ (h >> 7);
+            uint8_t c6 = sboxes[++sbox_index & 7][mixed & 0xFFF];
+            uint8_t c7 = sboxes[++sbox_index & 7][(mixed >> 12) & 0xFFF];
+            uint8_t c8 = sboxes[++sbox_index & 7][(mixed >> 24) & 0xFFF];
+            // Combine all compressed values
+            uint64_t compressed = ((uint64_t)c1 << 56) | ((uint64_t)c2 << 48) | 
+                                 ((uint64_t)c3 << 40) | ((uint64_t)c4 << 32) |
+                                 ((uint64_t)c5 << 24) | ((uint64_t)c6 << 16) | 
+                                 ((uint64_t)c7 << 8) | c8;
+            h ^= compressed;
+            h *= prime_high;
+            h ^= (h >> 29);
+            i += 8;
+        }
+        // Process remaining bytes
+        for (; i < len; i++) {
+            // Mix input byte into state
+            state = (state << 8) | data[i];
+            state *= prime_low;
+            state ^= (state >> 17);
+            // Use 3 S-box compressions per byte for irreversibility
+            uint8_t compressed1 = sboxes[++sbox_index & 7][(state ^ h) & 0xFFF];
+            uint8_t compressed2 = sboxes[++sbox_index & 7][((state >> 12) ^ (h >> 6)) & 0xFFF];
+            uint8_t compressed3 = sboxes[++sbox_index & 7][((state >> 24) ^ (h >> 18)) & 0xFFF];
+            h = (h << 24) | (compressed1 << 16) | (compressed2 << 8) | compressed3;
+            h ^= state;
+            h *= prime_high;
+            h ^= (h >> 29);
+        }
+        // Final avalanche
+        h ^= len * prime_mixed;
+        h ^= (h >> 33);
+        h *= prime_low;
+        h ^= (h >> 27);
+        return h % N;
+    }
     
     /**
      * @brief Print information about the hash function configuration

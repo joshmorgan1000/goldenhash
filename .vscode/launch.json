@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations":[
+        {
+            "name": "Debug manifoldb",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/goldenhash_test",
+            "args": ["1099511627775", "5000000", "--compare"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "CMake Debug",
+            "exitCommands": [
+                "exit"
+            ]
+        }
+    ]
+}
