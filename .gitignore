@@ -2,3 +2,5 @@
 run_builder.sh
 CLAUDE.md
 data/
+.vscode/
+build/
